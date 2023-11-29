@@ -3,7 +3,8 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - C:\kourtin\Decentraland\dcl-dev-exportersdk7\ExporterSdk7_Unity
   layers:
   - Default
   - TransparentFX
@@ -11,7 +12,7 @@ TagManager:
   - 
   - Water
   - UI
-  - 
+  - Colliders
   - 
   - 
   - 

@@ -105,7 +105,7 @@ namespace DCLExport
             {
                 if (!_entity)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _entity = (Texture2D)AssetDatabase.LoadAssetAtPath(
@@ -121,7 +121,7 @@ namespace DCLExport
             {
                 if (!_area)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _area = (Texture2D)AssetDatabase.LoadAssetAtPath(
@@ -137,7 +137,7 @@ namespace DCLExport
             {
                 if (!_ignore)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _ignore = (Texture2D)AssetDatabase.LoadAssetAtPath(
@@ -153,7 +153,7 @@ namespace DCLExport
             {
                 if (!_nft)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _nft = (Texture2D)AssetDatabase.LoadAssetAtPath(
@@ -169,7 +169,7 @@ namespace DCLExport
             {
                 if (!_cone)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _cone = (Texture2D) AssetDatabase.LoadAssetAtPath(
@@ -185,7 +185,7 @@ namespace DCLExport
             {
                 if (!_followup)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _followup = (Texture2D)AssetDatabase.LoadAssetAtPath(
@@ -201,7 +201,7 @@ namespace DCLExport
             {
                 if (!_text)
                 {
-                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Icons");
+                    var internalFolder = FileUtil.FindFolder("Decentraland Exporter/Resources/Icons");
                     if (internalFolder.EndsWith("/"))
                         internalFolder = internalFolder.Remove(internalFolder.LastIndexOf("/"), 1);
                     _text = (Texture2D)AssetDatabase.LoadAssetAtPath(

@@ -1,18 +1,97 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Unity.EditorCoroutines.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using TMPro;
-using System.Reflection;
+using UnityEngine.Networking;
 
 namespace DCLExport
 {
+    //STRUCTS
+    #region Structs
+    [Serializable]
+    public class Parcel
+    {
+        public int x;
+        public int y;
+    }
+    [Serializable]
+    public class Estate
+    {
+        public string description;
+        public int size;
+        public Parcel[] parcels;
+    }
+    [Serializable]
+    public class Data
+    {
+        public Estate estate;
+    }
+    [Serializable]
+    public class NFT
+    {
+        public string id;
+        public string tokenId;
+        public string contractAddress;
+        public string activeOrderId;
+        public string openRentalId;
+        public string owner;
+        public string name;
+        public string image;
+        public string url;
+        public Data data;
+        public string issuedId;
+        public string itemId;
+        public string category;
+        public string network;
+        public int chainId;
+        public int createdAt;
+        public int updatedAt;
+        public int soldAt;
+    }
+    [Serializable]
+    public class Order
+    {
+        public string id;
+        public string marketplaceAddress;
+        public string contractAddress;
+        public string tokenId;
+        public string owner;
+        public string buyer;
+        public string price;
+        public string status;
+        public string network;
+        public int chainId;
+        public int expiresAt;
+        public int createdAt;
+        public int updatedAt;
+        public string issuedId;
+    }
+    [Serializable]
+    public class DataArray
+    {
+        public NFT nft;
+        public Order order;
+        public string rental;
+    }
+    [Serializable]
+    public class JsonData
+    {
+        public DataArray[] data;
+        public int total;
+    }
+    [Serializable]
+    public class ReceivedJson
+    {
+        public JsonData jsonData;
+    }
+    #endregion
+    //
+    
     public class ParcelManager : EditorWindow
     {
         private static Vector2 scrollPosition;
@@ -27,8 +106,7 @@ namespace DCLExport
 
         public static List<string> stringList = new List<string>();
 
-        //Base 
-
+        //BASE
         private static GameObject go;
         private static GUIStyle style = new GUIStyle();
         private static GUIStyle style2 = new GUIStyle();
@@ -39,13 +117,17 @@ namespace DCLExport
         private static bool editParcelsMode;
         private static string parcelsText;
 
+        //JSON
+        private ReceivedJson receivedJson;
+        private Parcel[] parcels;
+        private string tokenId = "";
+        private string estateUrl = "";
 
 
         // Add menu named "My Window" to the Window menu
         [MenuItem("Dcl Exporter ToolKit/Parcel Manager")]
         static void Init()
         {
-
             // Get existing open window or if none, make a new one:
             ParcelManager window = (ParcelManager)EditorWindow.GetWindow(typeof(ParcelManager));
             window.titleContent = new GUIContent("ParcelManager");
@@ -57,7 +139,7 @@ namespace DCLExport
 
             startingParcel = ParcelToStringBuilder(sceneMeta.parcels[0]).ToString();
         }
-
+        
         private void SetUp()
         {
             if (!sceneMeta)
@@ -68,7 +150,6 @@ namespace DCLExport
             {
                 startingParcel = ParcelToStringBuilder(sceneMeta.parcels[0]).ToString();
             }
-
 
             so = new SerializedObject(FindObjectOfType<DclSceneMeta>());
 
@@ -134,6 +215,10 @@ namespace DCLExport
             
             parcelGUI();
 
+            GUILayout.Space(10);
+
+            dclMarketGUI();
+
             if (EditorGUI.EndChangeCheck())
             {
                 EditorUtility.SetDirty(sceneMeta);
@@ -181,7 +266,79 @@ namespace DCLExport
             EditorUtility.SetDirty(sceneMeta);
             EditorSceneManager.MarkSceneDirty(o.scene);
         }
+        IEnumerator getRequest()
+        {
+            StringBuilder parcelsCoords = new StringBuilder();
+            var request = new UnityWebRequest();
+            tokenId = estateUrl.Replace("https://decentraland.org/marketplace/contracts/0x959e104e1a4db6317fa58f8295f586e1a978c297/tokens/", "");
+            request.url = "https://nft-api.decentraland.org/v1/nfts?contractAddress=0x959e104e1a4db6317fa58f8295f586e1a978c297&tokenId=" + tokenId;
+            if (tokenId == "") yield break;
+            request.method = "GET";
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.uploadHandler = null;
+            request.SetRequestHeader("Accept", "application/json");
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = 20;
 
+            yield return request.SendWebRequest();
+            if (request.result == UnityWebRequest.Result.ConnectionError)
+            {
+                Debug.Log("Error While Sending: " + request.error);
+            }
+            else
+            {
+                receivedJson = JsonUtility.FromJson<ReceivedJson>("{\"jsonData\":" + request.downloadHandler.text + "}");
+
+                parcels = receivedJson.jsonData.data[0].nft.data.estate.parcels;
+
+                int lowerX = 1000000;
+                int lowerY = 1000000;
+                foreach (var parcel in parcels)
+                {
+                    if (parcel.y <= lowerY)
+                    {
+                        lowerY = parcel.y;
+                    }
+                    parcelsCoords.Append(parcel.x + "," + parcel.y + "\n");
+                }
+                parcelsCoords = parcelsCoords.Remove(parcelsCoords.Length - 1, 1); //Remove last \n
+
+                foreach (var parcel in parcels)
+                {
+                    if (parcel.y == lowerY && parcel.x <= lowerX)
+                    {
+                        lowerX = parcel.x;
+                    }
+                }
+                if (parcelsCoords.ToString().Contains("\n" + lowerX + "," + lowerY + "\n"))
+                {
+                    parcelsCoords.Replace("\n" + lowerX + "," + lowerY + "\n", "\n");
+                }
+                else if (parcelsCoords.ToString().Contains(lowerX + "," + lowerY + "\n"))
+                {
+                    parcelsCoords.Replace(lowerX + "," + lowerY + "\n", "");
+                }
+
+                parcelsCoords.Prepend(lowerX + "," + lowerY + "\n");
+            }
+
+            CheckAndGetDclSceneMetaObject();
+            try
+            {
+                var newParcels = new List<ParcelCoordinates>();
+                ParseText(parcelsCoords.ToString(), newParcels);
+                sceneMeta.parcels = newParcels;
+                editParcelsMode = false;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(e.Message);
+                EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below", "57,-11\n57,-12\n57,-13", "OK");
+            }
+
+            EditorUtility.SetDirty(sceneMeta);
+            EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
+        }
         void createButton(int index)
         {
             var boton = GUILayout.Button(stringList[index], GUILayout.Width(20), GUILayout.Height(20));
@@ -223,12 +380,10 @@ namespace DCLExport
                     }
                    
                     //Si no es la casilla 0 y tiene un 0, este se borra
-
                     if (stringList[index] == "0" && index != (gridColumn * gridRow) - gridColumn + 1)
                     {
                         stringList[index] = "";
                     }
-                    
                     if (index == (gridColumn * gridRow) - gridColumn + 1)
                     {
                         stringList[index] = "0";
@@ -265,11 +420,6 @@ namespace DCLExport
 
             foreach (string celda in stringList)
             {
-                /* if(celda == "0")
-                {
-                    relativeIndex = i;
-                    restColumn(relativeIndex, deepCount, x, y, newParcels);
-                }*/
                 if (celda == "x" /*&& celda != "0"*/)
                 {
                     relativeIndex = i;
@@ -287,9 +437,6 @@ namespace DCLExport
         void createBase(string startingParcel, List<ParcelCoordinates> newParcels,int x,int y, int startingX, int startingY)
         {
             ParseTextToCoordinates(startingParcel, newParcels, x, y, startingX, startingY);
-
-            //newParcels.Add(new ParcelCoordinates(x, y));
-
         }
         void restColumn(int relativeIndex, int deepCount, int x, int y, List<ParcelCoordinates> newParcels, int startingParcelX, int startingParcelY)
         {
@@ -306,7 +453,6 @@ namespace DCLExport
                 y = (gridColumn - deepCount) + startingParcelY;
                 x = (relativeIndex - 1) + startingParcelX;
                 newParcels.Add(new ParcelCoordinates(x, y));
-                //restColumn(relativeIndex, deepCount, x, y, newParcels);
             }
             else
             {
@@ -341,8 +487,8 @@ namespace DCLExport
             GUILayout.BeginHorizontal();
 
             GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            var button2_2 = GUILayout.Button("2x2", GUILayout.Height(25));
-            if (button2_2)
+
+            if (GUILayout.Button("2x2", GUILayout.Height(25)))
             {
                 try
                 {
@@ -354,15 +500,11 @@ namespace DCLExport
                 catch (Exception e)
                 {
                     Debug.LogError(e.Message);
-                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below",
-                        @"57,-11
-                        57,-12
-                        57,-13", "OK");
+                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below", "57,-11\n57,-12\n57,-13", "OK");
                 }
                 gridCount = 2;
             }
-            var button3_3 = GUILayout.Button("3x3", GUILayout.Height(25));
-            if (button3_3)
+            if (GUILayout.Button("3x3", GUILayout.Height(25)))
             {
                 try
                 {
@@ -374,15 +516,11 @@ namespace DCLExport
                 catch (Exception e)
                 {
                     Debug.LogError(e.Message);
-                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below",
-                        @"57,-11
-                        57,-12
-                        57,-13", "OK");
+                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below", "57,-11\n57,-12\n57,-13", "OK");
                 }
                 gridCount = 3;
             }
-            var button4_4 = GUILayout.Button("4x4", GUILayout.Height(25));
-            if (button4_4)
+            if (GUILayout.Button("4x4", GUILayout.Height(25)))
             {
                 try
                 {
@@ -394,15 +532,11 @@ namespace DCLExport
                 catch (Exception e)
                 {
                     Debug.LogError(e.Message);
-                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below",
-                        @"57,-11
-                        57,-12
-                        57,-13", "OK");
+                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below", "57,-11\n57,-12\n57,-13", "OK");
                 }
                 gridCount = 4;
             }
-            var button5_5 = GUILayout.Button("5x5", GUILayout.Height(25));
-            if (button5_5)
+            if (GUILayout.Button("5x5", GUILayout.Height(25)))
             {
                 try
                 {
@@ -414,10 +548,7 @@ namespace DCLExport
                 catch (Exception e)
                 {
                     Debug.LogError(e.Message);
-                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below",
-                        @"57,-11
-                        57,-12
-                        57,-13", "OK");
+                    EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below", "57,-11\n57,-12\n57,-13", "OK");
                 }
                 gridCount = 5;
             }
@@ -483,7 +614,6 @@ namespace DCLExport
         }
         public List<ParcelCoordinates> create3x3(string text, List<ParcelCoordinates> coordinates)
         {
-
             int x = 0;
             int y = 0;
 
@@ -525,7 +655,6 @@ namespace DCLExport
         }
         public List<ParcelCoordinates> create4x4(string text, List<ParcelCoordinates> coordinates)
         {
-
             int x = 0;
             int y = 0;
 
@@ -653,6 +782,24 @@ namespace DCLExport
 
             return coordinates;
         }
+        private void dclMarketGUI()
+        {
+            GUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Get from Dcl market estate url:");
+            if (GUILayout.Button("Dcl Market "))
+            {
+                Application.OpenURL("https://decentraland.org/marketplace/lands?assetType=nft&section=estates");
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            estateUrl = EditorGUILayout.TextField("", estateUrl);
+            if (GUILayout.Button("Get Parcels"))
+            {
+                EditorCoroutineUtility.StartCoroutine(getRequest(), this);
+            }
+            GUILayout.EndHorizontal();
+        }
         public void parcelGUI()
         {
             EditorGUILayout.BeginVertical("box");
@@ -676,10 +823,7 @@ namespace DCLExport
                     catch (Exception e)
                     {
                         Debug.LogError(e.Message);
-                        EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below",
-                            @"57,-11
-                            57,-12
-                            57,-13", "OK");
+                        EditorUtility.DisplayDialog("Coordinates format is not correct. Should be like below", "57,-11\n57,-12\n57,-13", "OK");
                     }
 
                     EditorUtility.SetDirty(sceneMeta);
@@ -753,14 +897,12 @@ namespace DCLExport
                     throw new Exception("A line does not have exactly 2 elements!");
                 }
 
-
                 x = int.Parse(elements[0]);
                 y = int.Parse(elements[1]);
                 startingX = x;
                 startingY = y;
                 coordinates.Add(new ParcelCoordinates(x, y));
             }
-
         }
         public static void ParseText(string text, List<ParcelCoordinates> coordinates)
         {
@@ -777,13 +919,10 @@ namespace DCLExport
                     throw new Exception("A line does not have exactly 2 elements!");
                 }
 
-
                 x = int.Parse(elements[0]);
                 y = int.Parse(elements[1]);
                 coordinates.Add(new ParcelCoordinates(x, y));
             }
-
         }
-
     }
 }

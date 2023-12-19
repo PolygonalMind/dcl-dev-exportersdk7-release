@@ -1,6 +1,4 @@
 ﻿#if UNITY_EDITOR
-using UnityEngine;
-using System.Collections;
 
 public class GlTF_AnimSampler : GlTF_Writer {
 	public int input = -1; // accessor index

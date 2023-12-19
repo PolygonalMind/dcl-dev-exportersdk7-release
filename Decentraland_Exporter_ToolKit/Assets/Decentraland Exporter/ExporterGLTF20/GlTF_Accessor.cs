@@ -1,6 +1,5 @@
 ﻿#if UNITY_EDITOR
 using UnityEngine;
-using System.Collections;
 using DCLExport;
 
 public class GlTF_Accessor : GlTF_Writer {
@@ -296,10 +295,6 @@ public class GlTF_Accessor : GlTF_Writer {
 			for(int i = 0; i < matrices.Length; i++)
 			{
 				Matrix4x4 mat = matrices[i];
-
-				// This code is buggy, don't use it for now.
-				//if (convertRightHanded)
-				//	convertMatrixLeftToRightHandedness(ref mat);
 
 				for (int j = 0; j < 4; j++)
 				{

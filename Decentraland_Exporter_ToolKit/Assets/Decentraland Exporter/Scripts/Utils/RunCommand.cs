@@ -14,8 +14,6 @@ namespace DCLExport
 #if UNITY_EDITOR_OSX
 
 #else
-            //DclExporter.clearDeps();
-
             var cmdNpm = "/k npm -v";
             ExecuteCommand(cmdNpm, true, false);
             var cmdNode = "/k node -v";
@@ -33,9 +31,6 @@ namespace DCLExport
 #if UNITY_EDITOR_OSX
 
 #else
-            //string strCmdText;
-            //strCmdText = string.Format("/k cd /d {0} & npx @dcl/sdk-commands init", path); //Command
-            //System.Diagnostics.Process.Start("CMD.exe", strCmdText); //Start cmd process
             var cmd = string.Format("/k cd /d {0} & npx @dcl/sdk-commands init", path);
             ExecuteCommand(cmd);
 #endif
@@ -182,7 +177,6 @@ namespace DCLExport
 
         static void Command(string cmd, bool createOutput, bool createWindow)
         {
-            //UnityEngine.Debug.Log(String.Format("exec cmd {0}",cmd));
             string exe = "";
 #if UNITY_EDITOR_OSX
             exe = "/bin/bash";
@@ -208,8 +202,6 @@ namespace DCLExport
 
             if (createOutput)
             {
-                //DataHandler(process.StandardOutput.ReadLine(), cmd);
-                //UnityEngine.Debug.Log(process.StandardOutput.ReadToEnd());
                 process.BeginOutputReadLine();
             }
 
@@ -221,7 +213,6 @@ namespace DCLExport
         {
             if (value == null || value.Contains(":\\")) return;
             
-            //UnityEngine.Debug.Log("Output Line: " + value);
             if (cmd.Contains("node -v"))
             {
                 if(value.Split(".").Length == 3 && value.StartsWith("v"))

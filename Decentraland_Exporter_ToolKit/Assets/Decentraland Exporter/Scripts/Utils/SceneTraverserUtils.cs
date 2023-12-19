@@ -16,12 +16,14 @@ namespace DCLExport
         _none,
         ignore,
         entity,
+        area,
         box,
         sphere,
         plane,
         cylinder,
         cone,
         circle,
+        text,
         gltf,
         ChildOfGLTF,
         nft,
@@ -154,7 +156,6 @@ namespace DCLExport
                 {
                     entityId += entityCount;
                 }
-                //if (aux.GetComponent<DclObject>() && string.Equals(aux.GetComponent<DclObject>().dclName, "scene" + go.scene.name + "_" + entityName + entityCount.ToString("0000")))
                 if (string.Equals(go.name,aux.name))
                 {
                     entityCount++;
@@ -283,6 +284,21 @@ namespace DCLExport
             aux = aux.Replace("\r\n", "\\n");
             aux = aux.Replace("\n", "\\n");
             return aux;
+        }
+        public static void ImportModuleECS(ResourceRecorder res, string index)
+        {
+            if (res.importedModulesECS.IndexOf(index) < 0)
+                res.importedModulesECS.Add(index);
+        }
+        public static void ImportModuleMath(ResourceRecorder res, string index)
+        {
+            if (res.importedModulesMATH.IndexOf(index) < 0)
+                res.importedModulesMATH.Add(index);
+        }
+        public static void ImportModuleRA(ResourceRecorder res, string index)
+        {
+            if (res.importedModulesRA.IndexOf(index) < 0)
+                res.importedModulesRA.Add(index);
         }
         public static void ImportDclModules(ResourceRecorder _resourceRecorder, StringBuilder exportStr)
         {

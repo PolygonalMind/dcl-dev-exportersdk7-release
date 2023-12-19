@@ -144,7 +144,25 @@ namespace DCLExport
                 gameObject.transform.localScale = new Vector3(4, 3, 4);
 
             }
-            
+
+            var dclObj = gameObject.AddComponent<DclObject>();
+            dclObj.debugBounds = true;
+            dclObj.dclNodeType = EDclNodeType.area;
+
+
+            switch (type)
+            {
+                case DclAreaType.TriggerArea:
+                    {
+                        gameObject.AddComponent<TriggerDcl>();
+                    }
+                    break;
+                case DclAreaType.ModifierArea:
+                    {
+                        gameObject.AddComponent<ModifierAreaDcl>();
+                    }
+                    break;
+            }
             return gameObject;
         }
 

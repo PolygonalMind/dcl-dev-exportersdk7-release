@@ -15,9 +15,13 @@ namespace DCLExport
         #region Variables
 
         //private string projectName;
+        private List<string> autoFindFolders = new List<string>();
+
+        //Export
+        internal static Color oriColor;
+        private static Vector2 scrollPosition;
         private string exportPath;
         private string newExportPath;
-        internal static Color oriColor;
         public static string nodeVersion;
         public static string npmVersion;
         public static string gltfVersion;
@@ -26,10 +30,24 @@ namespace DCLExport
         public static bool npmFound;
         public static bool gltfFound;
         public static bool dclCliFound;
-
-        private static Vector2 scrollPosition;
-        
+        public static bool GlbExternalTexture = false;
         private bool dclProjectExist;
+        public bool updateTrasverser;
+        public float timeUpdateTrasverser;
+        const int SPACE = 5;
+        internal static GUIStyle warningStyle = new GUIStyle();
+        private static GUIStyle labelStyle = new GUIStyle();
+
+        //Skybox
+        private Quaternion lightRotation;
+        private Color lightColor;
+        private Color skyColor;
+        private Color equatorColor;
+        private Color groundColor;
+        private Color fogColor;
+
+        //Bounding box
+        public static bool showBoundingBoxes = false;
 
         //Export function
         private DateTime initialTime;
@@ -41,23 +59,8 @@ namespace DCLExport
             GLBExternalTextures
         }
         public ExportFormat mFormat = new ExportFormat();
-        public static bool GlbExternalTexture = false;
-
-        [SerializeField] public bool updateTrasverser;
-        [SerializeField] public float timeUpdateTrasverser;
-
-        private List<string> autoFindFolders = new List<string>();
-
-        internal static GUIStyle warningStyle = new GUIStyle();
-        private static GUIStyle labelStyle = new GUIStyle();
-
         private DclSceneMeta sceneMeta;
-        private SerializedObject so;
-        SerializedProperty customCode;
-        SerializedProperty sceneSpawnPoints;
-        private List<string> popupOptions = new List<string>();
 
-        const int SPACE = 5;
         #endregion
 
         public static DclExporter Instance
@@ -92,9 +95,6 @@ namespace DCLExport
             {
                 CheckAndGetDclSceneMetaObject();
             }
-            so = new SerializedObject(FindObjectOfType<DclSceneMeta>());
-            customCode = so.FindProperty("customCode");
-            sceneSpawnPoints = so.FindProperty("spawnPoints");
         }
         void OnInspectorUpdate()
         {
@@ -104,39 +104,63 @@ namespace DCLExport
         void OnGUI()
         {
             SetUp();
+            
+            EditorGUI.BeginChangeCheck();
 
             exportPath = EditorPrefs.GetString("DclExportPath");
 
-            GUILayout.Space(SPACE);
-            
             if (string.IsNullOrEmpty(nodeVersion) || string.IsNullOrEmpty(npmVersion) || string.IsNullOrEmpty(gltfVersion) || string.IsNullOrEmpty(dclCliVersion))
             {
-                MisingDependenciesGUI();
+                MissingDependenciesGUI();
 
+                GUILayout.FlexibleSpace();
+
+                LinkButtons();
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    EditorUtility.SetDirty(sceneMeta);
+                    EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
+                }
                 return;
             }
-
+            
             DependenciesGUI();
 
             GUILayout.Space(SPACE);
-            
-            DclPathGUI();
 
-            GUILayout.Space(SPACE);
-            
-            if (!Directory.Exists(exportPath))
+            if (!Directory.Exists(exportPath) || !dclProjectExist)
             {
+                InitialGUI();
+                
                 ShowNotification(new GUIContent("You need to select a valid Decentraland project folder"), 0.1f);
+
+                GUILayout.FlexibleSpace();
+
+                LinkButtons();
+                
+                if (EditorGUI.EndChangeCheck())
+                {
+                    EditorUtility.SetDirty(sceneMeta);
+                    EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
+                }
                 return;
             }
 
+            DclPathGUI();
+
+            GUILayout.Space(SPACE);
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            
+
             DclCliGUI();
 
             GUILayout.Space(SPACE);
 
             DclProjectGUI();
+
+            GUILayout.Space(SPACE);
+
+            SetDayTime();
 
             GUILayout.Space(SPACE);
 
@@ -149,10 +173,18 @@ namespace DCLExport
             GUILayout.Space(SPACE);
 
             EditorGUILayout.EndScrollView();
-            
+
             GUILayout.FlexibleSpace();
 
             ExportButtons();
+
+            LinkButtons();
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                EditorUtility.SetDirty(sceneMeta);
+                EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
+            }
         }
         private void ExportButtons()
         {
@@ -163,15 +195,18 @@ namespace DCLExport
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Export 3D Models", GUILayout.Height(26)))
             {
+                saveOpenScenes();
                 Export(false, true, false);
             }
             if (GUILayout.Button("Export Scripts", GUILayout.Height(26)))
             {
+                saveOpenScenes();
                 Export(true, false, false);
             }
             if (GUILayout.Button("Export Metadata", GUILayout.Height(26)))
             {
-                ExportSceneJson();
+                saveOpenScenes();
+                Export(false, false, true);
             }
             EditorGUILayout.EndHorizontal();
             
@@ -179,12 +214,34 @@ namespace DCLExport
             GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
             if (GUILayout.Button("Export", GUILayout.Height(32)))
             {
+                saveOpenScenes();
                 Export();
             }
             GUI.backgroundColor = oriColor;
             EditorGUILayout.EndVertical();
         }
-        private void MisingDependenciesGUI()
+        private void saveOpenScenes()
+        {
+            if (EditorUtility.DisplayDialog("Save Open Scenes?", "Do you want to save the open scenes before the export?", "Yes", "No"))
+            {
+                EditorSceneManager.SaveOpenScenes();
+                Debug.Log("===Open scenes saved===");
+            }
+        }
+        private void LinkButtons()
+        {
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button(string.Format("Github Repository:\n{0}", "https://github.com/PolygonalMind/dcl-dev-exportersdk7-release"), EditorStyles.helpBox))
+            {
+                Application.OpenURL("https://github.com/PolygonalMind/dcl-dev-exportersdk7-release");
+            }
+            if (GUILayout.Button(string.Format("By PolygonalMind:\n{0}", "https://www.polygonalmind.com/"), EditorStyles.helpBox))
+            {
+                Application.OpenURL("https://www.polygonalmind.com/");
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+        private void MissingDependenciesGUI()
         {
             EditorGUILayout.BeginVertical("box");
             GUILayout.Label("Dependencies:\nNodeJS, Npm, Gltf-Pipeline and Dcl CLI\nNeeded to run this package correctly", warningStyle);
@@ -256,7 +313,7 @@ namespace DCLExport
             GUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
             
-            GUILayout.Space(SPACE * 2);
+            GUILayout.Space(SPACE);
 
             EditorGUILayout.BeginVertical("box");
             GUILayout.Label("4.- Check if all the dependencies are installed to start using the tool", labelStyle);
@@ -296,10 +353,104 @@ namespace DCLExport
             GUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
         }
+        private void InitialGUI()
+        {
+            string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../")) + "Decentraland/";
+            if (!Directory.Exists(folder))
+                Directory.CreateDirectory(folder);
+            
+            EditorGUILayout.BeginVertical("box");
+            warningStyle.normal.textColor = Color.green;
+            GUILayout.Label("Welcome to the Decentraland SDK7 Toolkit!\nSelect an option to continue...", warningStyle);
+            warningStyle.normal.textColor = Color.yellow;
+            EditorGUILayout.EndVertical();
+
+            GUILayout.Space(SPACE*4);
+
+            EditorGUILayout.BeginVertical("box");
+            GUILayout.Label("1.- Use an existing Decentraland project", labelStyle);
+
+            if (GUILayout.Button("Locate Dcl Project Root", GUILayout.Height(32)))
+            {
+                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", folder, "");
+                if (string.IsNullOrEmpty(newExportPath)) newExportPath = exportPath;
+                autoFindFolders.Clear();
+            }
+
+            GUILayout.Space(SPACE*4);
+            
+            GUILayout.Label("2.- Autofind Decentraland projects in '.../UnityRoot/Decentraland/'", labelStyle);
+            
+            if (GUILayout.Button("Autofind", GUILayout.Height(32)))
+            {
+                AutoFindExport();
+            }
+
+            GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
+            if (autoFindFolders.Count > 0)
+            {
+                GUILayout.Space(SPACE * 4);
+                for (int i = 0; i < autoFindFolders.Count; i++)
+                {
+                    if (GUILayout.Button(Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i]), GUILayout.Height(25)))
+                    {
+                        newExportPath = autoFindFolders[i];
+                        exportPath = newExportPath;
+                        EditorPrefs.SetString("DclExportPath", newExportPath);
+                        ShowNotification(new GUIContent("Path: " + Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i])));
+                        autoFindFolders.Clear();
+                    }
+                }
+                GUILayout.Space(SPACE * 4);
+            }
+            GUI.backgroundColor = oriColor;
+
+            GUILayout.Space(SPACE*4);
+            
+            GUILayout.Label("3.- Create a new Decentraland project", labelStyle);
+
+            if (GUILayout.Button("Create Decentraland project", GUILayout.Height(32)))
+            {
+                newExportPath = EditorUtility.OpenFolderPanel("Select the folder location", folder, "");
+                if (!string.IsNullOrEmpty(newExportPath))
+                {
+                    recursiveDirectoryCreation(0);
+
+                    if (EditorUtility.DisplayDialog("Confirm to init Decentraland",
+                            string.Format("Are you sure to init Decentraland in this path?\n{0}", newExportPath), "Yes", "No"))
+                    {
+                        RunCommand.DclInit(newExportPath);
+                        autoFindFolders.Clear();
+                    }
+                    else
+                    {
+                        Directory.Delete(newExportPath);
+                        newExportPath = exportPath;
+                    }
+                }
+                else
+                {
+                    newExportPath = exportPath;
+                }
+            }
+            EditorGUILayout.EndVertical();
+            
+            if (newExportPath != exportPath)
+            {
+                exportPath = newExportPath;
+                EditorPrefs.SetString("DclExportPath", newExportPath);
+            }
+        }
         private void DclPathGUI()
         {
+            if (!dclProjectExist) return;
+            
+            string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../")) + "Decentraland/";
+            if (!Directory.Exists(folder))
+                Directory.CreateDirectory(folder);
+            
             EditorGUILayout.BeginVertical("box");
-            GUILayout.Label(string.Format("Dcl Project Path:   <color=#A8EDA8>{0}</color>", exportPath), labelStyle, GUILayout.Width(100));
+            GUILayout.Label(string.Format("Dcl Project Path:  <color=#A8EDA8>{0}</color>", newExportPath), labelStyle, GUILayout.Width(100));
 
             GUILayout.BeginHorizontal();
             newExportPath = EditorGUILayout.TextField(exportPath);
@@ -310,25 +461,59 @@ namespace DCLExport
             {
                 newExportPath = "";
             }
-            if (GUILayout.Button("Set Folder", GUILayout.Height(24)))
+            if (GUILayout.Button("Set Dcl Project Root", GUILayout.Height(24)))
             {
-                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", exportPath, "");
+                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", folder, "");
                 if (string.IsNullOrEmpty(newExportPath)) newExportPath = exportPath;
+                autoFindFolders.Clear();
             }
-            //Check if the project contains /src and scene.json to avoid errors deleting an incorrect folder, this way only can be deleted if its a Dcl project initialiced
-            if (dclProjectExist)
+            if (GUILayout.Button("Create Dcl Project", GUILayout.Height(24)))
             {
-                GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-                if (GUILayout.Button("Delete Content", GUILayout.Height(24), GUILayout.Width(100)))
+                newExportPath = EditorUtility.OpenFolderPanel("Select the folder location", folder, "");
+                if (!string.IsNullOrEmpty(newExportPath))
                 {
-                    if (EditorUtility.DisplayDialog("Confirm to delete Dcl project directory content",
-                        string.Format("Are you sure to delete all the Dcl project directory content?\n{0}", exportPath), "Yes", "No"))
+                    recursiveDirectoryCreation(0);
+
+                    if (EditorUtility.DisplayDialog("Confirm to init Decentraland",
+                            string.Format("Are you sure to init Decentraland in this path?\n{0}", newExportPath), "Yes", "No"))
                     {
-                        RunCommand.DclDeleteFolderContent(exportPath);
-                        ShowNotification(new GUIContent("Deleting Dcl project folder content"), 0.5f);
+                        RunCommand.DclInit(newExportPath);
+                        autoFindFolders.Clear();
+                    }
+                    else
+                    {
+                        Directory.Delete(newExportPath);
+                        newExportPath = exportPath;
                     }
                 }
-                GUI.backgroundColor = oriColor;
+                else
+                {
+                    newExportPath = exportPath;
+                }
+            }
+            //Check if the project contains /src and scene.json to avoid errors deleting an incorrect folder, this way only can be deleted if its a Dcl project initialiced
+
+            //if (dclProjectExist)
+            //{
+            //    GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
+            //    if (GUILayout.Button("Delete Content", GUILayout.Height(24), GUILayout.Width(100)))
+            //    {
+            //        if (EditorUtility.DisplayDialog("Confirm to delete Dcl project directory content",
+            //            string.Format("Are you sure to delete all the Dcl project directory content?\n{0}", exportPath), "Yes", "No"))
+            //        {
+            //            RunCommand.DclDeleteFolderContent(exportPath);
+            //            ShowNotification(new GUIContent("Deleting Dcl project folder content"), 0.5f);
+            //        }
+            //    }
+            //    GUI.backgroundColor = oriColor;
+            //}
+
+            //
+            GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
+
+            if (GUILayout.Button("Auto Find", GUILayout.Height(24)))
+            {
+                AutoFindExport();
             }
 
             if (newExportPath != exportPath)
@@ -337,26 +522,56 @@ namespace DCLExport
                 EditorPrefs.SetString("DclExportPath", newExportPath);
             }
             GUILayout.EndHorizontal();
+            
+            //AutoFind folders show the project list in the UnityProjectRoot/Decentraland folder
+            if (autoFindFolders.Count > 0)
+            {
+                for (int i = 0; i < autoFindFolders.Count; i++)
+                {
+                    if (GUILayout.Button(Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i]), GUILayout.Height(25)))
+                    {
+                        newExportPath = autoFindFolders[i];
+                        exportPath = newExportPath;
+                        EditorPrefs.SetString("DclExportPath", newExportPath);
+                        ShowNotification(new GUIContent("Path: " + Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i])));
+                        autoFindFolders.Clear();
+                    }
+                }
+            }
 
+            GUI.backgroundColor = oriColor;
             GUILayout.EndVertical();
+        }
+        private void recursiveDirectoryCreation(int i)
+        {
+            if (string.IsNullOrEmpty(newExportPath))
+                return;
+
+            newExportPath = newExportPath + "/Export_" + i.ToString();
+
+            if (Directory.Exists(newExportPath))
+            {
+                newExportPath = newExportPath.Replace("/Export_" + i.ToString(), "");
+                i++;
+                recursiveDirectoryCreation(i);
+                return;
+            }
+            Directory.CreateDirectory(newExportPath);
         }
         private void DclCliGUI()
         {
-
+            if (!dclProjectExist) return;
+            
             EditorGUILayout.BeginVertical("box");
 
-            GUILayout.Label(string.Format("Decentraland CLI:   <color=#A8EDA8>{0}</color>", dclCliVersion), labelStyle);
+            GUILayout.Label(string.Format("Decentraland CLI:  <color=#A8EDA8>{0}</color>", dclCliVersion), labelStyle);
             GUILayout.BeginHorizontal();
             GUI.backgroundColor = new Color(1f, 0.8f, 1f);
             if (GUILayout.Button("Init Dcl Project", GUILayout.Height(32)))
             {
-                if (Directory.GetFiles(exportPath).Length != 0)
+                if (Directory.GetFiles(exportPath).Length != 0 || Directory.GetDirectories(exportPath).Length != 0)
                 {
-                    if (EditorUtility.DisplayDialog("Confirm to init Decentraland",
-                        string.Format("This project folder is not empty\nAre you sure to init a dcl project in this path?\n{0}", exportPath), "Yes", "No"))
-                    {
-                        RunCommand.DclInit(exportPath);
-                    }
+                    Debug.LogError("The selected directory: " + exportPath + "\nIs not empty, select a valid path to Init a Decentraland project");
                 }
                 else
                 {
@@ -395,58 +610,54 @@ namespace DCLExport
             if (!dclProjectExist) return;
             
             EditorGUILayout.BeginVertical("box");
+
+            GUILayout.Label(string.Format("Statistics:", dclCliVersion), labelStyle);
+
             EditorGUILayout.BeginHorizontal();
-            var foldout = EditorUtil.GUILayout.AutoSavedFoldout("DclFoldStat", "Statistics", true, null);
+            EditorGUILayout.BeginVertical(GUILayout.MinWidth(200));
+            EditorGUILayout.Space(SPACE);
 
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUI.indentLevel = 1;
-            if (foldout)
+            GUI.backgroundColor = new Color(0.6f, 1.0f, 0.6f);
+            if (GUILayout.Button("Refresh", GUILayout.MinHeight(25)))
             {
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.BeginVertical(GUILayout.MinWidth(200));
-                EditorGUILayout.Space(SPACE);
-                if (GUILayout.Button("Refresh", GUILayout.MinHeight(25)))
-                {
-                    sceneMeta.RefreshStatistics();
-                    sceneMeta.getParcelSetVolumes();
-                }
-                EditorGUILayout.Space(SPACE);
-                updateTrasverser = EditorGUILayout.ToggleLeft("Autorefresh", updateTrasverser, GUILayout.MaxWidth(100));
-                EditorGUILayout.Space(5);
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.Space(0);
-                GUILayout.Label("Refresh Interval:", GUILayout.MaxWidth(100));
-                timeUpdateTrasverser = EditorGUILayout.FloatField(timeUpdateTrasverser, GUILayout.MaxWidth(60));
-                GUILayout.Label("s");
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.EndVertical();
-                EditorGUILayout.Space(10);
-                EditorGUILayout.BeginVertical();
-
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Label("Keep these numbers smaller than the righty", EditorStyles.centeredGreyMiniLabel);
-                EditorGUILayout.EndHorizontal();
-                var n = sceneMeta.parcels.Count;
-                var sceneStatistics = sceneMeta.sceneStatistics;
-                StatisticsLineGUI("Triangles", sceneStatistics.triangleCount, LimitationConfigs.GetMaxTriangles(n));
-                StatisticsLineGUI("Bodies", sceneStatistics.bodyCount, LimitationConfigs.GetMaxBodies(n));
-                StatisticsLineGUI("Entities", sceneStatistics.entityCount, LimitationConfigs.GetMaxTriangles(n));
-                StatisticsLineGUI("Materials", (long)sceneStatistics.materialCount, LimitationConfigs.GetMaxMaterials(n));
-                StatisticsLineGUI("Textures", (long)sceneStatistics.textureCount, LimitationConfigs.GetMaxTextures(n));
-                StatisticsLineGUI("Height", (long)sceneStatistics.maxHeight, LimitationConfigs.GetMaxHeight(n));
-                EditorGUILayout.LabelField("GLTFs", sceneStatistics.gltfCount.ToString());
-                EditorGUILayout.LabelField("DCL Primitives", sceneStatistics.primitiveCount.ToString());
-                EditorGUILayout.EndVertical();
-                EditorGUILayout.EndVertical();
-
-                EditorGUILayout.Space(SPACE);
-                mFormat = (ExportFormat)EditorGUILayout.EnumPopup("Gltf Type:", mFormat);
-                EditorGUILayout.Space(SPACE);
+                sceneMeta.RefreshStatistics();
+                sceneMeta.getParcelSetVolumes();
             }
+            GUI.backgroundColor = oriColor;
+            EditorGUILayout.Space(SPACE);
+            updateTrasverser = EditorGUILayout.ToggleLeft("Autorefresh", updateTrasverser, GUILayout.MaxWidth(100));
+            EditorGUILayout.Space(SPACE);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Refresh Interval:", GUILayout.MaxWidth(100));
+            timeUpdateTrasverser = EditorGUILayout.FloatField(timeUpdateTrasverser, GUILayout.MaxWidth(60));
+            GUILayout.Label("s");
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(SPACE);
+            EditorGUILayout.BeginVertical();
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Keep these numbers smaller than the righty", EditorStyles.centeredGreyMiniLabel);
+            EditorGUILayout.EndHorizontal();
+            var n = sceneMeta.parcels.Count;
+            var sceneStatistics = sceneMeta.sceneStatistics;
+            StatisticsLineGUI("Triangles", sceneStatistics.triangleCount, LimitationConfigs.GetMaxTriangles(n));
+            StatisticsLineGUI("Bodies", sceneStatistics.bodyCount, LimitationConfigs.GetMaxBodies(n));
+            StatisticsLineGUI("Entities", sceneStatistics.entityCount, LimitationConfigs.GetMaxTriangles(n));
+            StatisticsLineGUI("Materials", (long)sceneStatistics.materialCount, LimitationConfigs.GetMaxMaterials(n));
+            StatisticsLineGUI("Textures", (long)sceneStatistics.textureCount, LimitationConfigs.GetMaxTextures(n));
+            StatisticsLineGUI("Height", (long)sceneStatistics.maxHeight, LimitationConfigs.GetMaxHeight(n));
+            EditorGUILayout.LabelField("GLTFs", sceneStatistics.gltfCount.ToString());
+            EditorGUILayout.LabelField("DCL Primitives", sceneStatistics.primitiveCount.ToString());
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(SPACE);
+            mFormat = (ExportFormat)EditorGUILayout.EnumPopup("Gltf Type:", mFormat);
+            showBoundingBoxes = EditorGUILayout.ToggleLeft("Show bounding boxes", showBoundingBoxes);
+            EditorGUILayout.Space(SPACE);
 
             WarningsGUI();
-            EditorGUI.indentLevel = 0;
             EditorGUILayout.EndHorizontal();
         }
         private void DclProjectGUI()
@@ -454,13 +665,25 @@ namespace DCLExport
             if (!dclProjectExist) return;
 
             EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("Decentraland Project: ", labelStyle);
+            GUILayout.Label(string.Format("Decentraland Project:  <color=#A8EDA8>{0}</color>", Path.GetFileName(exportPath)), labelStyle);
             GUILayout.BeginHorizontal();
 
             if (GUILayout.Button("Open Folder", GUILayout.Height(32)))
             {
                 Application.OpenURL(exportPath);
             }
+            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
+            if (GUILayout.Button("Run Local Preview", GUILayout.Height(32)))
+            {
+                RunMenu("");
+                //GenericMenu menu = new GenericMenu();
+                //menu.AddItem(new GUIContent("Run Local"), false, RunMenu, "");
+                //menu.AddItem(new GUIContent("Run Local No Debug"), false, RunMenu, " --no-debug");
+                //menu.AddItem(new GUIContent("Run Web3"), false, RunMenu, " --web3");
+                //menu.AddItem(new GUIContent("Run Web3 No Debug"), false, RunMenu, " --web3 --no-debug");
+                //menu.ShowAsContext();
+            }
+            GUI.backgroundColor = oriColor;
             GUILayout.EndHorizontal();
             
             GUILayout.BeginHorizontal();
@@ -482,21 +705,87 @@ namespace DCLExport
 
             GUILayout.Space(SPACE);
 
-            GUILayout.BeginHorizontal();
-            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            if (GUILayout.Button("Run Dcl", GUILayout.Height(32)))
-            {
-                GenericMenu menu = new GenericMenu();
-                menu.AddItem(new GUIContent("Run Local"), false, RunMenu, "");
-                menu.AddItem(new GUIContent("Run Local No Debug"), false, RunMenu, " --no-debug");
-                menu.AddItem(new GUIContent("Run Web3"), false, RunMenu, " --web3");
-                menu.AddItem(new GUIContent("Run Web3 No Debug"), false, RunMenu, " --web3 --no-debug");
-                menu.ShowAsContext();
-            }
-            GUI.backgroundColor = oriColor;
-            GUILayout.EndHorizontal();
 
             GUILayout.EndVertical();
+        }
+        private void SetDayTime()
+        {
+            if (!dclProjectExist) return;
+
+            EditorGUILayout.BeginVertical("Box");
+            GUILayout.Label("Skybox & Illumination Time:", labelStyle);
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("00:00"))
+            {
+                lightRotation = Quaternion.Euler(183, -45, -90);
+                lightColor = new Color(0.686f, 0.655f, 0.738f);
+                skyColor = new Color(0.604f, 0.530f, 0.943f);
+                equatorColor = new Color(0.726f, 0.541f, 0.932f);
+                groundColor = new Color(0.213f, 0.040f, 0.471f);
+                fogColor = new Color(0.161f, 0.093f, 0.330f);
+                    
+                SetSkyboxTime(00, 0.2f, false);
+            }
+            if (GUILayout.Button("04:00"))
+            {
+                lightRotation = Quaternion.Euler(183, -45, -90);
+                lightColor = new Color(0.692f, 0.538f, 0.934f);
+                skyColor = new Color(0.899f, 0.878f, 0.917f);
+                equatorColor = new Color(0.880f, 0.661f, 0.531f);
+                groundColor = new Color(0.528f, 0.324f, 0.512f);
+                fogColor = new Color(0.432f, 0.427f, 0.389f);
+
+
+                SetSkyboxTime(04, 0.652f, true);
+            }
+            if (GUILayout.Button("08:00"))
+            {
+                lightRotation = Quaternion.Euler(152, -45, -90);
+                lightColor = new Color(0.767f, 0.732f, 0.638f);
+                skyColor = new Color(0.992f, 0.816f, 0.640f);
+                equatorColor = new Color(0.718f, 0.774f, 0.841f);
+                groundColor = new Color(0.818f, 0.523f, 0.272f);
+                fogColor = new Color(0.517f, 0.572f, 0.382f);
+                
+                SetSkyboxTime(08, 1.1f, true);
+            }
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("12:00"))
+            {
+                lightRotation = Quaternion.Euler(89, -45, -90);
+                lightColor = new Color(0.852f, 0.838f, 0.797f);
+                skyColor = new Color(0.954f, 0.789f, 0.678f);
+                equatorColor = new Color(0.942f, 0.858f, 0.783f);
+                groundColor = new Color(0.304f, 0.320f, 0.352f);
+                fogColor = new Color(0.414f, 0.528f, 0.312f);
+
+                SetSkyboxTime(12, 1.3f, true);
+            }
+            if (GUILayout.Button("16:00"))
+            {
+                lightRotation = Quaternion.Euler(46, -45, -90);
+                lightColor = new Color(0.859f, 0.788f, 0.641f);
+                skyColor = new Color(0.917f, 0.785f, 0.683f);
+                equatorColor = new Color(0.866f, 0.797f, 0.721f);
+                groundColor = new Color(0.740f, 0.550f, 0.414f);
+                fogColor = new Color(0.484f, 0.517f, 0.409f);
+
+                SetSkyboxTime(16, 1.2f, true);
+            }
+            if (GUILayout.Button("20:00"))
+            {
+                lightRotation = Quaternion.Euler(6, -45, -90);
+                lightColor = new Color(0.798f, 0.583f, 0.284f);
+                skyColor = new Color(0.819f, 0.715f, 0.744f);
+                equatorColor = new Color(0.824f, 0.712f, 0.732f);
+                groundColor = new Color(0.742f, 0.575f, 0.725f);
+                fogColor = new Color(0.420f, 0.391f, 0.437f);
+
+                SetSkyboxTime(20, 1f, true);
+            }
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
         }
         private void SceneDataGUI()
         {
@@ -504,7 +793,7 @@ namespace DCLExport
             
             EditorGUILayout.BeginVertical("box");
 
-            var oriFoldout = EditorPrefs.GetBool("DclBoldOwner");
+            var oriFoldout = EditorPrefs.GetBool("DclMetadata");
             var foldout = EditorGUILayout.Foldout(oriFoldout, "Scene Metadata", true);
             if (foldout)
             {
@@ -530,82 +819,60 @@ namespace DCLExport
                 sceneMeta.ethAddress = EditorGUILayout.TextField("Address", sceneMeta.ethAddress); //"owner" stands for ETH Address holding this LAND
                 sceneMeta.contactName = EditorGUILayout.TextField("Name", sceneMeta.contactName); // Name of the owner
                 sceneMeta.email = EditorGUILayout.TextField("Email", sceneMeta.email); // Email or contact form of the owner
-                
-                EditorGUILayout.LabelField("SpawnPoint, use size for Area", EditorStyles.boldLabel);
-                if (so.targetObject != FindObjectOfType<DclSceneMeta>())
+
+                EditorGUILayout.BeginVertical("box");
+
+                var oriFoldout2 = EditorPrefs.GetBool("DclSpawn");
+                var spawnFoldout = EditorGUILayout.Foldout(oriFoldout2, "SpawnPoints, use size for Area", true, EditorStyles.foldout);
+                if (spawnFoldout)
                 {
-                    so = new SerializedObject(FindObjectOfType<DclSceneMeta>());
-                    sceneSpawnPoints = so.FindProperty("spawnPoints");
+                    EditorGUI.indentLevel = 2;
+                    foreach (Transform transform in sceneMeta.spawnPoints)
+                    {
+                        EditorGUILayout.LabelField(transform.name + ": ", EditorStyles.boldLabel);
+                        GUILayout.BeginHorizontal("Box");
+                        transform.localPosition = EditorGUILayout.Vector3Field("Position", transform.localPosition);
+                        transform.localScale = EditorGUILayout.Vector3Field("Size", transform.localScale);
+                        GUILayout.EndHorizontal();
+                    }
+
+                    GUILayout.BeginHorizontal();
+                    if (GUILayout.Button("Add Spawn", EditorStyles.miniButtonRight))
+                    {
+                        GameObject go = new GameObject();
+                        go.name = "spawnPoint" + (sceneMeta.spawnPoints.Count>0? sceneMeta.spawnPoints.Count : 0) + "DCL";
+                        go.transform.parent = sceneMeta.gameObject.transform;
+                        sceneMeta.spawnPoints.Add(go.transform);
+                    }
+                    if(sceneMeta.spawnPoints.Count > 1)
+                    {
+                        if (GUILayout.Button("Remove Last", EditorStyles.miniButtonRight))
+                        {
+                            DestroyImmediate(sceneMeta.spawnPoints[sceneMeta.spawnPoints.Count - 1].gameObject);
+                            sceneMeta.spawnPoints.RemoveAt(sceneMeta.spawnPoints.Count - 1);
+                            sceneMeta.spawnPoints.Capacity -= 1;
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField("Use Custom Camera Target (Look at direction vector)", GUILayout.Width(320));
+                    sceneMeta.allowCCT = EditorGUILayout.Toggle(sceneMeta.allowCCT);
+                    GUILayout.EndHorizontal();
+                    if (sceneMeta.allowCCT)
+                    {
+                        sceneMeta.rotX = EditorGUILayout.FloatField("Set X", sceneMeta.rotX);
+                        sceneMeta.rotY = EditorGUILayout.FloatField("Set Y", sceneMeta.rotY);
+                        sceneMeta.rotZ = EditorGUILayout.FloatField("Set Z", sceneMeta.rotZ);
+                    }
                 }
-                popupOptions.Clear();
-                foreach (Transform transform in sceneMeta.spawnPoints)
-                {
-                    if (transform)
-                        popupOptions.Add("SpawnPoint: " + SceneTraverserUtils.FloatToString(transform.position.x) + ", " + SceneTraverserUtils.FloatToString(transform.position.y) + ", " + SceneTraverserUtils.FloatToString(transform.position.z));
-                }
+                if (spawnFoldout != oriFoldout2) EditorPrefs.SetBool("DclSpawn", spawnFoldout);
 
-                sceneMeta.currentSpawnPoint = EditorGUILayout.Popup("Current Spawn Point:", sceneMeta.currentSpawnPoint, popupOptions.ToArray());
-                EditorGUI.BeginChangeCheck();
-                EditorGUILayout.PropertyField(sceneSpawnPoints);
-
-                if (EditorGUI.EndChangeCheck())
-                {
-                    so.ApplyModifiedProperties(); // Remember to apply modified properties
-                }
-
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Use Custom Camera Target?", EditorStyles.boldLabel);
-                sceneMeta.allowCCT = EditorGUILayout.Toggle(sceneMeta.allowCCT);
-                GUILayout.EndHorizontal();
-                sceneMeta.rotX = EditorGUILayout.FloatField("Set X", sceneMeta.rotX);
-                sceneMeta.rotY = EditorGUILayout.FloatField("Set Y", sceneMeta.rotY);
-                sceneMeta.rotZ = EditorGUILayout.FloatField("Set Z", sceneMeta.rotZ);
-
-                EditorGUILayout.LabelField("Required Permissions", EditorStyles.boldLabel);  //DCL PERMISSIONS
-
-                GUILayout.BeginHorizontal();
-                GUILayout.BeginVertical();
-
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Use Web3 Api?");
-                sceneMeta.useWeb3Api = EditorGUILayout.Toggle(sceneMeta.useWeb3Api);
-                GUILayout.EndHorizontal();
-
-                GUILayout.Space(SPACE);
-
-                //GUILayout.BeginHorizontal();
-                //EditorGUILayout.LabelField("Enable voice chat?", EditorStyles.boldLabel);  //THIS IS NOT A PERMISSION BUT TOOGLES THE VOICE CHAT ENABLED/DISABLED
-                //sceneMeta.voiceChatEnabled = EditorGUILayout.Toggle(sceneMeta.voiceChatEnabled);
-                sceneMeta.voiceChatEnabled = true;
-                //GUILayout.EndHorizontal();
-
-                GUILayout.EndVertical();
-                GUILayout.BeginVertical();
-
-                //GUILayout.BeginHorizontal();
-                //EditorGUILayout.LabelField("Use Fetch?");
-                //sceneMeta.useFetch = EditorGUILayout.Toggle(sceneMeta.useFetch);
-                sceneMeta.useFetch = true;
-                //GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Use Websocket?");
-                sceneMeta.useWebSocket = EditorGUILayout.Toggle(sceneMeta.useWebSocket);
-                GUILayout.EndHorizontal();
-
-                //GUILayout.BeginHorizontal();
-                //EditorGUILayout.LabelField("Open external Links?");
-                //sceneMeta.openExternalLink = EditorGUILayout.Toggle(sceneMeta.openExternalLink);
-                sceneMeta.openExternalLink = true;
-                //GUILayout.EndHorizontal();
-
-                GUILayout.EndVertical();
-                GUILayout.EndHorizontal();
-
+                EditorGUILayout.EndVertical();
                 EditorGUI.indentLevel = 0;
             }
 
-            if (foldout != oriFoldout) EditorPrefs.SetBool("DclBoldOwner", foldout);
+            if (foldout != oriFoldout) EditorPrefs.SetBool("DclMetadata", foldout);
 
             EditorGUILayout.EndVertical();
         }
@@ -613,8 +880,7 @@ namespace DCLExport
         {
             string type = (string)str;
             
-            if (EditorUtility.DisplayDialog("Confirm to run Dcl",
-                    "Are you sure to run the Dcl scene?", "Yes", "No"))
+            if (EditorUtility.DisplayDialog("Confirm to run Dcl", "Are you sure to run the Dcl scene?", "Yes", "No"))
             {
                 RunCommand.DclRunStart(exportPath, type);
                 ShowNotification(new GUIContent("Decentraland is Starting"));
@@ -836,80 +1102,59 @@ namespace DCLExport
                 fileTxt = fileTxt.Replace("{CONTACT_EMAIL}", sceneMeta.email);
                 fileTxt = fileTxt.Replace("{ETH_ADDRESS}", sceneMeta.ethAddress);
 
-                if (sceneMeta.spawnPoints.Count == 0 || (sceneMeta.spawnPoints.Count != 0 && sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint] == null))
+                StringBuilder spawnStr = new StringBuilder();
+                if (sceneMeta.spawnPoints.Count <= 0)
                 {
-                    fileTxt = fileTxt.Replace("{XSPAWN}", SceneTraverserUtils.FloatToString(sceneMeta.spawnX));
-                    fileTxt = fileTxt.Replace("{YSPAWN}", SceneTraverserUtils.FloatToString(sceneMeta.spawnY));
-                    fileTxt = fileTxt.Replace("{ZSPAWN}", SceneTraverserUtils.FloatToString(sceneMeta.spawnZ));
+                    spawnStr.AppendFormat("\t{{\n\t\"name\": \"{0}\",\n\t\"default\": true,\n\t\"position\": {{\n", "defaultSpawn");
+                    spawnStr.AppendFormat("\t\t\"x\": {0},\n", SceneTraverserUtils.FloatToString(sceneMeta.spawnX));
+                    spawnStr.AppendFormat("\t\t\"y\": {0},\n", SceneTraverserUtils.FloatToString(sceneMeta.spawnY));
+                    spawnStr.AppendFormat("\t\t\"z\": {0}\n", SceneTraverserUtils.FloatToString(sceneMeta.spawnZ));
 
-                    fileTxt = fileTxt.Replace("{XOR}", SceneTraverserUtils.FloatToString(sceneMeta.rotX));
-                    fileTxt = fileTxt.Replace("{YOR}", SceneTraverserUtils.FloatToString(sceneMeta.rotY));
-                    fileTxt = fileTxt.Replace("{ZOR}", SceneTraverserUtils.FloatToString(sceneMeta.rotZ));
+                    spawnStr.Append("\t},\n\t\"cameraTarget\": {\n");
+                    spawnStr.AppendFormat("\t\t\"x\": {0},\n", SceneTraverserUtils.FloatToString(sceneMeta.rotX));
+                    spawnStr.AppendFormat("\t\t\"y\": {0},\n", SceneTraverserUtils.FloatToString(sceneMeta.rotY));
+                    spawnStr.AppendFormat("\t\t\"z\": {0}\n", SceneTraverserUtils.FloatToString(sceneMeta.rotZ));
+                    spawnStr.Append("\t}\n\t}");
                 }
                 else
                 {
-                    if (sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].localScale.x > 1.0f)
+                    foreach (Transform spawn in sceneMeta.spawnPoints)
                     {
-                        fileTxt = fileTxt.Replace("{XSPAWN}", "[" + SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.x) + "," + SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].localScale.x) + "]");
+                        spawnStr.AppendFormat("{{\n\t\"name\": \"{0}\",\n\t\"default\": true,\n\t\"position\": {{\n", spawn.name);
+                        if (spawn.localScale.x > 1.0f || spawn.localScale.y > 1.0f || spawn.localScale.z > 1.0f)
+                        {
+                            spawnStr.AppendFormat("\t\t\"x\": [{0},{1}],\n", SceneTraverserUtils.FloatToString(spawn.position.x - spawn.localScale.x / 2), SceneTraverserUtils.FloatToString(spawn.position.x + spawn.localScale.x / 2));
+                            spawnStr.AppendFormat("\t\t\"y\": [{0},{1}],\n", SceneTraverserUtils.FloatToString(spawn.position.y - spawn.localScale.y / 2), SceneTraverserUtils.FloatToString(spawn.position.y + spawn.localScale.y / 2));
+                            spawnStr.AppendFormat("\t\t\"z\": [{0},{1}]\n", SceneTraverserUtils.FloatToString(spawn.position.z - spawn.localScale.z / 2), SceneTraverserUtils.FloatToString(spawn.position.z + spawn.localScale.z / 2));
+                        }
+                        else
+                        {
+                            spawnStr.AppendFormat("\t\t\"x\": {0},\n", SceneTraverserUtils.FloatToString(spawn.position.x));
+                            spawnStr.AppendFormat("\t\t\"y\": {0},\n", SceneTraverserUtils.FloatToString(spawn.position.y));
+                            spawnStr.AppendFormat("\t\t\"z\": {0}\n", SceneTraverserUtils.FloatToString(spawn.position.z));
+                        }
+
+                        spawnStr.Append("\t},\n\t\"cameraTarget\": {\n");
+
+                        if (!sceneMeta.allowCCT)
+                        {
+                            spawnStr.AppendFormat("\t\t\"x\": {0},\n", SceneTraverserUtils.FloatToString(spawn.position.x + 10f));
+                            spawnStr.AppendFormat("\t\t\"y\": {0},\n", SceneTraverserUtils.FloatToString(spawn.position.y + 0f));
+                            spawnStr.AppendFormat("\t\t\"z\": {0}\n", SceneTraverserUtils.FloatToString(spawn.position.z + 0f));
+                        }
+                        else
+                        {
+                            spawnStr.AppendFormat("\t\"x\": {0},\n", SceneTraverserUtils.FloatToString(spawn.position.x + sceneMeta.rotX));
+                            spawnStr.AppendFormat("\t\"y\": {0},\n", SceneTraverserUtils.FloatToString(spawn.position.y + sceneMeta.rotY));
+                            spawnStr.AppendFormat("\t\"z\": {0}\n", SceneTraverserUtils.FloatToString(spawn.position.z + sceneMeta.rotZ));
+                        }
+                        spawnStr.Append("\t}\n\t},\n\t");
                     }
-                    else
-                    {
-                        fileTxt = fileTxt.Replace("{XSPAWN}", SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.x));
-                    }
-                    if (sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].localScale.y > 1.0f)
-                    {
-                        fileTxt = fileTxt.Replace("{YSPAWN}", "[" + SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.y) + "," + SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].localScale.y) + "]");
-                    }
-                    else
-                    {
-                        fileTxt = fileTxt.Replace("{YSPAWN}", SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.y));
-                    }
-                    if (sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].localScale.z > 1.0f)
-                    {
-                        fileTxt = fileTxt.Replace("{ZSPAWN}", "[" + SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.z) + "," + SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].localScale.z) + "]");
-                    }
-                    else
-                    {
-                        fileTxt = fileTxt.Replace("{ZSPAWN}", SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.z));
-                    }
+                    spawnStr = spawnStr.Remove(spawnStr.Length - 3, 3); //remove ",\n\t" from the last spawnpoint
                 }
 
-                if (sceneMeta.allowCCT == true)
-                {
-                    fileTxt = fileTxt.Replace("{XOR}", SceneTraverserUtils.FloatToString(sceneMeta.rotX));
-                    fileTxt = fileTxt.Replace("{YOR}", SceneTraverserUtils.FloatToString(sceneMeta.rotY));
-                    fileTxt = fileTxt.Replace("{ZOR}", SceneTraverserUtils.FloatToString(sceneMeta.rotZ));
-                }
-                else
-                    fileTxt = fileTxt.Replace("{XOR}", SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.x) + 0f);
-                fileTxt = fileTxt.Replace("{YOR}", SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.y + 1f));
-                fileTxt = fileTxt.Replace("{ZOR}", SceneTraverserUtils.FloatToString(sceneMeta.spawnPoints[sceneMeta.currentSpawnPoint].position.z + 16f));
-
-                StringBuilder grants = new StringBuilder();
-
-                if (sceneMeta.useWeb3Api == true)
-                {
-                    grants.Append("\"USE_WEB3_API\",\n");
-                }
-
-                if (sceneMeta.useFetch == true)
-                {
-                    grants.Append("\"USE_FETCH\",\n");
-                }
-
-                if (sceneMeta.useWebSocket == true)
-                {
-                    grants.Append("\"USE_WEBSOCKET\",\n");
-                }
-
-                if (sceneMeta.openExternalLink == true)
-                {
-                    grants.Append("\"OPEN_EXTERNAL_LINK\",\n");
-                }
-                grants = grants.Remove(grants.Length - 2, 2);
-                
-                fileTxt = fileTxt.Replace("{GRANTS}", grants.ToString());
-                grants.Clear();
+                fileTxt = fileTxt.Replace("{SPAWN}", spawnStr.ToString());
+                spawnStr.Clear();
 
                 if (sceneMeta.voiceChatEnabled == true)
                 {
@@ -993,6 +1238,9 @@ namespace DCLExport
                         spawnPoint.transform.position = new Vector3(0, 1, 0);
                         spawnPoint.transform.localScale = Vector3.zero;
                         spawnPoint.transform.parent = sceneMeta.transform;
+                        GameObject cam = new GameObject("Camera");
+                        cam.transform.parent = sceneMeta.transform;
+                        cam.AddComponent<Camera>();
                         sceneMeta.spawnPoints.Add(spawnPoint.transform);
                         EditorUtility.SetDirty(sceneMeta);
                         EditorSceneManager.MarkSceneDirty(go.scene);
@@ -1008,6 +1256,9 @@ namespace DCLExport
             spwPoint.transform.position = new Vector3(0, 1, 0);
             spwPoint.transform.localScale = Vector3.zero;
             spwPoint.transform.parent = sceneMeta.transform;
+            GameObject camera = new GameObject("Camera");
+            camera.transform.parent = sceneMeta.transform;
+            camera.AddComponent<Camera>();
             sceneMeta.spawnPoints.Add(spwPoint.transform);
             EditorUtility.SetDirty(sceneMeta);
             EditorSceneManager.MarkSceneDirty(o.scene);
@@ -1025,6 +1276,53 @@ namespace DCLExport
             EditorGUILayout.EndHorizontal();
             GUI.contentColor = oriColor;
         }
+        public void AutoFindExport()
+        {
+            string projectFolder = Path.Combine(Application.dataPath, "../");
+            projectFolder = Path.GetFullPath(projectFolder);
+
+            string exportchild = projectFolder + "Decentraland/";
+            
+            if (!Directory.Exists(exportchild))
+                Directory.CreateDirectory(exportchild);
+            
+            exportchild = Path.GetFullPath(exportchild);
+            autoFindFolders.Clear();
+            findInDclDirectory(exportchild);
+        }
+        private void findInDclDirectory(string directory)
+        {
+            string[] directories = System.IO.Directory.GetDirectories(directory);
+            foreach (string dir in directories)
+            {
+                if (File.Exists(dir + "/scene.json") && File.Exists(dir + "/src/index.ts"))
+                {
+                    autoFindFolders.Add(dir);
+                }
+                else
+                {
+                    findInDclDirectory(dir);
+                }
+            }
+        }
+        private void SetSkyboxTime(int time, float intensity, bool softShadow)
+        {
+            Light light = FindFirstObjectByType<Light>();
+            light.transform.rotation = lightRotation;
+            light.color = lightColor;
+            light.intensity = intensity;
+            light.shadows = softShadow ? LightShadows.Soft : LightShadows.None;
+
+            RenderSettings.skybox.SetTexture("_Tex", Resources.Load<Cubemap>(string.Format("Skybox/{0}h", time.ToString("00"))));
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = skyColor;
+            RenderSettings.ambientEquatorColor = equatorColor;
+            RenderSettings.ambientGroundColor = groundColor;
+            RenderSettings.fog = true;
+            RenderSettings.fogStartDistance = 0;
+            RenderSettings.fogEndDistance = 800;
+            RenderSettings.fogColor = fogColor;
+        }
         void WarningsGUI()
         {
             var foldout = EditorPrefs.GetBool("DclFoldStat", true);
@@ -1041,28 +1339,31 @@ namespace DCLExport
                     GUILayout.Label("Click the warning to focus in the scene", EditorStyles.centeredGreyMiniLabel);
                     foreach (var areaOutOfLandWarning in sceneMeta.sceneWarningRecorder.AreaOutOfLandWarnings)
                     {
-                        WarningLineGUI(string.Format("Out of land range : {0}", areaOutOfLandWarning.renderer.name),
-                            null, areaOutOfLandWarning.renderer.gameObject);
+                        if (!areaOutOfLandWarning.renderer) return;
+                        WarningLineGUI(string.Format("Out of land range : {0}", areaOutOfLandWarning.renderer.name), null, areaOutOfLandWarning.renderer.gameObject);
                     }
 
                     foreach (var outOfLandWarning in sceneMeta.sceneWarningRecorder.OutOfLandWarnings)
                     {
-                        WarningLineGUI(string.Format("Out of land range : {0}", outOfLandWarning.renderer.name),
-                            null, outOfLandWarning.renderer.gameObject);
+                        if (!outOfLandWarning.renderer) return;
+                        WarningLineGUI(string.Format("Out of land range : {0}", outOfLandWarning.renderer.name), null, outOfLandWarning.renderer.gameObject);
                     }
 
                     foreach (var warning in sceneMeta.sceneWarningRecorder.UnsupportedShaderWarnings)
                     {
+                        if (!warning.renderer) return;
                         var path = AssetDatabase.GetAssetPath(warning.renderer);
                         WarningLineGUI(string.Format("Unsupported shader : {0}", warning.renderer.name), "Only URP Lit Shader is supported", path, new Color(1, 0.7f, 0.1f, 1));
                     }
                     foreach (var warning in sceneMeta.sceneWarningRecorder.InvalidTextureWarnings)
                     {
+                        if (!warning.renderer) return;
                         var path = AssetDatabase.GetAssetPath(warning.renderer);
                         WarningLineGUI(string.Format("Invalid texture size : {0}", warning.renderer.name), "Texture sizes must be one of 1,2,4,8,..., 512 (1024 is not allowed, experimental)", path, Color.yellow);
                     }
                     foreach (var warning in sceneMeta.sceneWarningRecorder.InvalidNamingWarnings)
                     {
+                        if (!warning.renderer) return;
                         WarningLineGUI(string.Format("Invalid Naming : {0}", warning.renderer.name),
                             null, warning.renderer.gameObject);
                     }
@@ -1111,30 +1412,23 @@ namespace DCLExport
                     return;
                 }
             }
-            if (go.GetComponent<MeshRenderer>())
-            {
-                if(go.GetComponent<TextMesh>() || go.GetComponent<TextMeshPro>()) return;
-                
-                var matRenderer = go.GetComponent<MeshRenderer>();
-                if (!matRenderer.sharedMaterial.shader.name.Contains("Universal Render Pipeline/Lit"))
-                {
-                    Debug.LogError("WARNING\nGameObject: \"" + matRenderer.gameObject + "\" has a non supported shader: " + matRenderer.sharedMaterial.shader.name + "\nYou should use Polyshader instead");
-                    if (EditorUtility.DisplayDialog("WARNING", "Material on \"" + matRenderer.gameObject + "\" is NOT suported!!\nYou should use POLYSHADER instead of \n" + matRenderer.sharedMaterial.shader.name, "Ok"))
-                    {
+            if (go.GetComponent<TextMesh>() || go.GetComponent<TextMeshPro>()) return;
 
-                    }
+            var matRenderer = go.GetComponent<MeshRenderer>();
+            var matSkRenderer = go.GetComponent<SkinnedMeshRenderer>();
+
+            if (matRenderer && !matRenderer.sharedMaterial.shader.name.Contains("Universal Render Pipeline/Lit"))
+            {
+                Debug.LogError("WARNING\nGameObject: \"" + matRenderer.gameObject + "\" has a non supported shader: " + matRenderer.sharedMaterial.shader.name + "\nYou should use Polyshader instead");
+                if (EditorUtility.DisplayDialog("WARNING", "Material on \"" + matRenderer.gameObject + "\" is NOT suported!!\nYou should use POLYSHADER instead of \n" + matRenderer.sharedMaterial.shader.name, "Ok"))
+                {
                 }
             }
-            else if (go.GetComponent<SkinnedMeshRenderer>())
+            else if (matSkRenderer && !matSkRenderer.sharedMaterial.shader.name.Contains("Universal Render Pipeline/Lit"))
             {
-                var matRenderer = go.GetComponent<SkinnedMeshRenderer>();
-                if (!matRenderer.sharedMaterial.shader.name.Contains("Universal Render Pipeline/Lit"))
+                Debug.LogError("WARNING\nGameObject: \"" + matSkRenderer.gameObject + "\" has a non supported shader: " + matSkRenderer.sharedMaterial.shader.name + "\nYou should use Polyshader instead");
+                if (EditorUtility.DisplayDialog("WARNING", "Material on \"" + matSkRenderer.gameObject + "\" is NOT suported!!\nYou should use POLYSHADER instead of \n" + matSkRenderer.sharedMaterial.shader.name, "Ok"))
                 {
-                    Debug.LogError("WARNING\nGameObject: \"" + matRenderer.gameObject + "\" has a non supported shader: " + matRenderer.sharedMaterial.shader.name + "\nYou should use Polyshader instead");
-                    if (EditorUtility.DisplayDialog("WARNING", "Material on \"" + matRenderer.gameObject + "\" is NOT suported!!\nYou should use POLYSHADER instead of \n" + matRenderer.sharedMaterial.shader.name, "Ok"))
-                    {
-
-                    }
                 }
             }
         }

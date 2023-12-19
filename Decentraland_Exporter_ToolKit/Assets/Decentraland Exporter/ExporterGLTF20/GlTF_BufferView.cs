@@ -1,6 +1,4 @@
 ﻿#if UNITY_EDITOR
-using UnityEngine;
-using System.Collections;
 using System.IO;
 using System;
 
@@ -68,8 +66,6 @@ public class GlTF_BufferView : GlTF_Writer  {
 	{
 		for (int i = 0; i < vs.Length; i++)
 		{
-			//			memoryStream.Write (vs[i]);
-			//			memoryStream.Write ((byte[])vs, 0, vs.Length * sizeof(int));
 			float f = vs[i];
 			memoryStream.Write (BitConverter.GetBytes(f), 0, BitConverter.GetBytes(f).Length);
 			currentOffset += 4;

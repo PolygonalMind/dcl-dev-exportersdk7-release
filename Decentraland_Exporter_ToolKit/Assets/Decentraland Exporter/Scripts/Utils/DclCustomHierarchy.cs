@@ -52,6 +52,9 @@ public class DclCustomHierarchy
                     case EDclNodeType.entity:
                         tex = DclEditorSkin.Entity;
                         break;
+                    case EDclNodeType.area:
+                        tex = DclEditorSkin.Area;
+                        break;
                     case EDclNodeType.ignore:
                         tex = DclEditorSkin.Ignore;
                         break;
@@ -76,6 +79,9 @@ public class DclCustomHierarchy
                     case EDclNodeType.circle:
                         tex = DclEditorSkin.Sphere;
                         break;
+                    case EDclNodeType.text:
+                        tex = DclEditorSkin.Text;
+                        break;
                     case EDclNodeType.gltf:
                         tex = DclEditorSkin.Mesh;
                         break;
@@ -89,6 +95,9 @@ public class DclCustomHierarchy
                         tex = DclEditorSkin.FollowUp;
                         break;
                 }
+            }
+            else
+            {
             }
         }
 
@@ -120,6 +129,8 @@ public class DclCustomHierarchy
         {
             case EDclNodeType.entity:
                 return "Empty Entity";
+            case EDclNodeType.area:
+                return "Area effector";
             case EDclNodeType.box:
                 return "BoxShape";
             case EDclNodeType.sphere:
@@ -132,6 +143,8 @@ public class DclCustomHierarchy
                 return "ConeShape";
             case EDclNodeType.circle:
                 return "CircleShape";
+            case EDclNodeType.text:
+                return "TextShape";
             case EDclNodeType.gltf:
                 return "GLTFShape";
             case EDclNodeType.gltf_forced:

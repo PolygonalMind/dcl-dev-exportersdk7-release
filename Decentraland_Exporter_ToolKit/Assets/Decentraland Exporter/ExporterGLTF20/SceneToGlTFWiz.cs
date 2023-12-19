@@ -427,6 +427,27 @@ public class SceneToGlTFWiz : MonoBehaviour
 			// Parse animations
 			if (exportAnimation)
             {
+                AnimatorDcl a = tr.GetComponent<AnimatorDcl>();
+                if (a != null)
+                {
+                    List<AnimationClip> clips = new List<AnimationClip>();
+                    //Add the default animation in first position
+                    clips.Add(a.defaultAnimation.clip);
+                    //Add the rest of clips
+                    foreach (DclAnimation dclAnim in a.animations)
+                    {
+                        clips.Add(dclAnim.clip);
+                    }
+
+                    for (int i = 0; i < clips.Count; i++)
+                    {
+                        GlTF_Animation anim = new GlTF_Animation(GlTF_Writer.cleanNonAlphanumeric(a.name));
+                        anim.name = clips[i].name;
+                        anim.Populate(clips[i], tr, GlTF_Writer.bakeAnimation);
+                        if (anim.channels.Count > 0)
+                            GlTF_Writer.animations.Add(anim);
+                    }
+                }
 
                 Animator animator = tr.GetComponent<Animator>();
                 if (animator != null)
@@ -872,6 +893,27 @@ public class SceneToGlTFWiz : MonoBehaviour
             // Parse animations
             if (exportAnimation)
 			{
+                AnimatorDcl a = tr.GetComponent<AnimatorDcl>();
+                if (a != null)
+                {
+                    List<AnimationClip> clips = new List<AnimationClip>();
+					//Add the default animation in first position
+                    clips.Add(a.defaultAnimation.clip);
+					//Add the rest of clips
+                    foreach (DclAnimation dclAnim in a.animations)
+                    {
+                        clips.Add(dclAnim.clip);
+                    }
+					
+                    for (int i = 0; i < clips.Count; i++)
+                    {
+                        GlTF_Animation anim = new GlTF_Animation(GlTF_Writer.cleanNonAlphanumeric(a.name));
+                        anim.name = clips[i].name;
+                        anim.Populate(clips[i], tr, GlTF_Writer.bakeAnimation);
+                        if (anim.channels.Count > 0)
+                            GlTF_Writer.animations.Add(anim);
+                    }
+                }
 
                 Animator animator = tr.GetComponent<Animator>();
                 if (animator != null)

@@ -2,7 +2,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using System.Collections.Generic;
-using UnityEditor.SceneManagement;
 
 namespace DCLExport
 {
@@ -137,7 +136,7 @@ namespace DCLExport
                 Gizmos.color = Color.red;
                 if (AreaOutOfLandWarning.renderer)
                 {
-                    Gizmos.DrawWireCube(AreaOutOfLandWarning.renderer.transform.position, AreaOutOfLandWarning.renderer.transform.lossyScale+v);
+                    Gizmos.DrawWireCube(AreaOutOfLandWarning.renderer.transform.position, AreaOutOfLandWarning.renderer.transform.lossyScale);
                 }
                 Gizmos.color = oriColor;
             }
@@ -157,7 +156,7 @@ namespace DCLExport
                 Gizmos.color = Color.blue;
                 if (areaOutOfLandWarning.renderer)
                 {
-                    Gizmos.DrawWireCube(areaOutOfLandWarning.renderer.transform.position, areaOutOfLandWarning.renderer.transform.lossyScale+v);
+                    Gizmos.DrawWireCube(areaOutOfLandWarning.renderer.transform.position, areaOutOfLandWarning.renderer.transform.lossyScale);
                 }
                 Gizmos.color = oriColor;
             }
@@ -165,10 +164,8 @@ namespace DCLExport
         public void getParcelSetVolumes()
         {
             //GET MAX PARCEL (X,Y)
-
             if (parcels.Count > 0)
             {
-                const int startSize = 16;
                 var highestNumber = new Vector2(1, 1);
                 var baseParcel = parcels[0];
                 foreach (var parcel in parcels)
@@ -183,34 +180,6 @@ namespace DCLExport
                     {
                         highestNumber.y = difY;
                     }
-                }
-
-                //SETUP or CREATE gameobjects and components IF NEEDED
-
-                var refProbe = GetComponentInChildren<ReflectionProbe>();
-                if (refProbe)
-                {
-                    refProbe.transform.position = new Vector3(refProbe.transform.position.x, 32, refProbe.transform.position.z);
-                    refProbe.size = new Vector3(startSize*highestNumber.x, 32, startSize*highestNumber.y);
-                    refProbe.center = new Vector3(refProbe.size.x/2, -16, refProbe.size.z/2);
-                    refProbe.mode = ReflectionProbeMode.Realtime;
-                    refProbe.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
-                    refProbe.timeSlicingMode = ReflectionProbeTimeSlicingMode.IndividualFaces;
-                    refProbe.resolution = 512;
-                }
-                else
-                {
-                    var newRef = new GameObject();
-                    newRef.transform.SetParent(gameObject.transform);
-                    newRef.name = "ReflectionProbe";
-                    ReflectionProbe rp = newRef.AddComponent<ReflectionProbe>();
-                    rp.transform.position = new Vector3(rp.transform.position.x, 32, rp.transform.position.z);
-                    rp.size = new Vector3(startSize * highestNumber.x, 32, startSize * highestNumber.y);
-                    rp.center = new Vector3(rp.size.x / 2, -16, rp.size.z / 2);
-                    rp.mode = ReflectionProbeMode.Realtime;
-                    rp.refreshMode = ReflectionProbeRefreshMode.EveryFrame;
-                    rp.timeSlicingMode = ReflectionProbeTimeSlicingMode.IndividualFaces;
-                    rp.resolution = 512;
                 }
 
                 var dirLight = GetComponentInChildren<Light>();

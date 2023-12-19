@@ -8,6 +8,7 @@ namespace DCLExport
     [AddComponentMenu("Dcl Exporter ToolKit/DclObject")]
     public class DclObject : MonoBehaviour
     {
+        public bool debugBounds = true;
         // If true this object will be ignored during the export
         public bool ignoreObject = false;
 
@@ -36,5 +37,82 @@ namespace DCLExport
                 orderComps();
             }
         }
+        #region Gizmos
+        void OnDrawGizmosSelected()
+        {
+            if (dclNodeType == EDclNodeType.area)
+            {
+                Gizmos.color = Color.yellow;
+                DrawGizmos();
+            }
+            else
+            {
+                if (!debugBounds) return;
+                Gizmos.color = Color.yellow;
+                DrawGizmos();
+            }
+        }
+        void OnDrawGizmos()
+        {
+            if (GetComponent<ModifierAreaDcl>())
+            {
+                Gizmos.color = Color.green;
+                DrawGizmos();
+            }
+            else if (GetComponent<TriggerDcl>())
+            {
+                Gizmos.color = Color.magenta;
+                DrawGizmos();
+            }
+            else
+            {
+                if (!debugBounds) return;
+                if (!DclExporter.showBoundingBoxes) return;
+                Gizmos.color = Color.yellow;
+                DrawGizmos();
+            }
+        }
+
+        private void DrawGizmos()
+        {
+            var wr = FindObjectOfType<DclSceneMeta>().sceneWarningRecorder;
+
+            foreach (var warn in wr.OutOfLandWarnings)
+            {
+                if (warn.renderer == GetComponent<Renderer>())
+                    Gizmos.color = Color.red;
+            }
+            foreach (var warn in wr.AreaOutOfLandWarnings)
+            {
+                if (warn.renderer == this.gameObject)
+                    Gizmos.color = Color.red;
+            }
+            foreach (var warn in wr.OutOfHeightLandWarnings)
+            {
+                if (warn.renderer == GetComponent<Renderer>())
+                    Gizmos.color = Color.blue;
+            }
+            foreach (var warn in wr.AreaOutOfHeightLandWarnings)
+            {
+                if (warn.renderer == this.gameObject)
+                    Gizmos.color = Color.blue;
+            }
+
+            if (GetComponent<MeshRenderer>())
+            {
+                var bb = GetComponent<MeshRenderer>().bounds;
+                Gizmos.DrawWireCube(bb.center, bb.size);
+            }
+            else if (GetComponent<SkinnedMeshRenderer>())
+            {
+                var bb = GetComponent<SkinnedMeshRenderer>().bounds;
+                Gizmos.DrawWireCube(bb.center, bb.size);
+            }
+            else if (dclNodeType == EDclNodeType.area)
+            {
+                Gizmos.DrawWireCube(transform.position, transform.lossyScale);
+            }
+        }
+        #endregion
     }
 }

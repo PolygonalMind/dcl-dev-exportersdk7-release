@@ -168,10 +168,13 @@ Animator.create(s0_Entity_Bobcat_02__1__01,{
 	},]
 })
 pointerEventsSystem.onPointerDown(
-	{entity: s0_Entity_Bobcat_02__1__01, opts: {button: InputAction.IA_ANY, maxDistance: 8, hoverText:"Wake up!"}},
+	{entity: s0_Entity_Bobcat_02__1__01, opts: {button: InputAction.IA_ANY, maxDistance: 8, hoverText:"Click- Wake Up!\nE- Sleep"}},
 	function(cmd){
 		if(cmd.button === InputAction.IA_POINTER){
-			Animator.playSingleAnimation(s0_Entity_Bobcat_02__1__01, "Bobcat_Idle_01_Anim", true)
+			Animator.playSingleAnimation(s0_Entity_Bobcat_02__1__01, "Bobcat_Idle_01_Anim", false)
+		}
+		if(cmd.button === InputAction.IA_PRIMARY){
+			Animator.playSingleAnimation(s0_Entity_Bobcat_02__1__01, "Bobcat_Sleep_01_Anim", false)
 		}
 	}
 )
@@ -5637,18 +5640,18 @@ Transform.create(s0_Water_Pond_01__2__01, {
 // Entity: s0_TriggerArea_01 //
 const s0_TriggerArea_01 = engine.addEntity()
 Transform.create(s0_TriggerArea_01, {
-	position: {x:15.36,y:1.5,z:4.48},
+	position: {x:15.32,y:3.51,z:5.23},
 	rotation: {x:0,y:0,z:0,w:1},
-	scale: {x:4,y:3,z:4}
+	scale: {x:2.94952,y:6.6444,z:0.65992}
 })
 utils.triggers.addTrigger(s0_TriggerArea_01,
 	utils.NO_LAYERS,
 	utils.LAYER_1,
 	[{  type: 'box',
-		scale: {x:4,y:3,z:4},
+		scale: {x:2.94952,y:6.6444,z:0.65992},
 	}],
 	function(){	//Enter
-		movePlayerTo({ newRelativePosition: {x:17.87,y:19.49407,z:54.84}, cameraTarget: {x:15.36,y:1.5,z:4.48}})
+		movePlayerTo({ newRelativePosition: {x:17.87,y:19.49407,z:54.84}, cameraTarget: {x:15.32,y:3.51,z:5.23}})
 	},
 	function(){	//Exit
 		

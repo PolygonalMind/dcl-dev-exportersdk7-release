@@ -8,7 +8,7 @@ namespace DCLExport
     [AddComponentMenu("Dcl Exporter ToolKit/DclObject")]
     public class DclObject : MonoBehaviour
     {
-        public bool debugBounds = true;
+        public bool debugBounds = false;
         // If true this object will be ignored during the export
         public bool ignoreObject = false;
 

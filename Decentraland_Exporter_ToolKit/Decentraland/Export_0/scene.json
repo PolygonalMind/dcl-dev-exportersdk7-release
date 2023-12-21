@@ -2,8 +2,8 @@
 "ecs7": true,
 "runtimeVersion": "7",
 "display": {
-    "title": "Awesome Land",
-	"description": "Test for the project",
+    "title": "Land Title",
+	"description": "Land Info",
 	"navmapThumbnail": "images/scene-thumbnail.jpg",
     "favicon": "favicon_asset"
 },
@@ -14,41 +14,38 @@
 "owner": "ETH Address",
 "scene": {
 "parcels": [
-          "8,43",
-      "8,49",
-      "9,49",
-      "8,48",
-      "9,48",
-      "8,47",
-      "9,47",
-      "8,46",
-      "9,46",
-      "8,45",
-      "9,45",
-      "8,44",
-      "9,44",
-      "9,43"
+          "82,-28",
+      "82,-27",
+      "82,-26",
+      "82,-25",
+      "83,-28",
+      "83,-27",
+      "83,-26",
+      "83,-25",
+      "84,-28",
+      "84,-27",
+      "84,-26"
     ],
-    "base": "8,43"
+    "base": "82,-28"
 },
 "spawnPoints": [
     {
 	"name": "spawnPoint0DCL",
 	"default": true,
 	"position": {
-		"x": 20.29,
-		"y": 20.21,
-		"z": 55.06
+		"x": 0,
+		"y": 1,
+		"z": 0
 	},
 	"cameraTarget": {
-		"x": 30.29,
-		"y": 20.21,
-		"z": 55.06
+		"x": 10,
+		"y": 1,
+		"z": 0
 	}
 	}
 ],
 "featureToggles": {
-    "voiceChat": "enabled"
+    "voiceChat": "disabled"
 },
 "main": "bin/index.js",
 "tags": []

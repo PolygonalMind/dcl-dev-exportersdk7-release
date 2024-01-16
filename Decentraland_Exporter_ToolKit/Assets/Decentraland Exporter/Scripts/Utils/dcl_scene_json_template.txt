@@ -22,7 +22,8 @@
     {SPAWN}
 ],
 "featureToggles": {
-    "voiceChat": {VOICECHAT}
+    "voiceChat": {VOICECHAT},
+    "portableExperiences": {PORTABLEEXP}
 },
 "main": "bin/index.js",
 "tags": []

@@ -7,6 +7,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
+using UnityEngine.Rendering;
+using UnityEditor.SearchService;
 
 namespace DCLExport
 {
@@ -18,25 +20,35 @@ namespace DCLExport
         private List<string> autoFindFolders = new List<string>();
 
         //Export
-        internal static Color oriColor;
-        private static Vector2 scrollPosition;
+        private Texture2D thumbnailImage;
+        internal static string version = "v240105.1";
         private string exportPath;
         private string newExportPath;
-        public static string nodeVersion;
-        public static string npmVersion;
-        public static string gltfVersion;
-        public static string dclCliVersion;
+        private string stringColor;
+        public static bool GlbExternalTexture = false;
+
+        //Depenencies
+        private bool dclProjectExist;
+        public static string nodeVersion = "not found";
+        public static string npmVersion = "not found";
+        public static string gltfVersion = "not found";
+        public static string dclCliVersion = "not found";
         public static bool nodeFound;
         public static bool npmFound;
         public static bool gltfFound;
         public static bool dclCliFound;
-        public static bool GlbExternalTexture = false;
-        private bool dclProjectExist;
         public bool updateTrasverser;
         public float timeUpdateTrasverser;
-        const int SPACE = 5;
-        internal static GUIStyle warningStyle = new GUIStyle();
+
+        //GUI
+        private int toolBarIndex = 0;
+        private const int SPACE = 10;
+        private const int defaultWidth = 400;
+        private static Vector2 scrollPosition;
+        private static GUIStyle titleStyle = new GUIStyle();
         private static GUIStyle labelStyle = new GUIStyle();
+        private static GUIStyle blackLabelStyle = new GUIStyle();
+        public static Color oriColor;
 
         //Skybox
         private Quaternion lightRotation;
@@ -45,9 +57,9 @@ namespace DCLExport
         private Color equatorColor;
         private Color groundColor;
         private Color fogColor;
-
-        //Bounding box
+        
         public static bool showBoundingBoxes = false;
+        public static bool showMaxHeight = false;
 
         //Export function
         private DateTime initialTime;
@@ -55,49 +67,88 @@ namespace DCLExport
         public enum ExportFormat
         {
             GLBCompressedTextures,
-            GLTFExternalTextures,
+            GLTFBin,
             GLBExternalTextures
         }
         public ExportFormat mFormat = new ExportFormat();
         private DclSceneMeta sceneMeta;
-
+        private DateTime nextTimeRefresh;
+        private DateTime timmerTraverser;
         #endregion
 
         public static DclExporter Instance
         {
             get { return GetWindow<DclExporter>(); }
         }
-        [MenuItem("Dcl Exporter ToolKit/Dcl Scene Exporter (Main Tool)", false, 100)]
-        static void Init()
+        [MenuItem("Dcl Exporter ToolKit/Control Panel", false, 100)]
+        public static void Init()
         {
             var window = GetWindow<DclExporter>();
-            window.minSize = new Vector2(500, 400);
-            window.maxSize = new Vector2(500, 1000);
-            window.titleContent = new GUIContent("Decentraland Scene Exporter");
+            window.minSize = new Vector2(450, 400);
+            window.maxSize = new Vector2(450, 800);
+            window.titleContent = new GUIContent("Control Panel");
             window.Show();
 
-            window.ShowNotification(new GUIContent("Checking for Dependencies"), 0.5f);
+            window.ShowNotification(new GUIContent("Checking for Dependencies"), 0.2f);
 
             RunCommand.DependencieCheck();
         }
         private void SetUp()
         {
+            //Styles Config
             oriColor = GUI.backgroundColor;
 
-            warningStyle.normal.textColor = Color.yellow;
-            warningStyle.alignment = TextAnchor.UpperCenter;
-            warningStyle.fontSize = 18;
+            titleStyle.normal.textColor = Color.white;
+            titleStyle.alignment = TextAnchor.MiddleCenter;
+            titleStyle.fontSize = 32;
+            titleStyle.margin = new RectOffset(0, 0, 0, 0);
 
             labelStyle.normal.textColor = Color.white;
-            labelStyle.alignment = TextAnchor.UpperLeft;
-            
+            labelStyle.alignment = TextAnchor.MiddleLeft;
+
+            blackLabelStyle.normal.textColor = Color.white;
+            blackLabelStyle.alignment = TextAnchor.MiddleCenter;
+            exportPath = EditorPrefs.GetString("DclExportPath");
+
+            //Get Scene Metadata Object
             if (!sceneMeta)
             {
                 CheckAndGetDclSceneMetaObject();
             }
         }
+        private void Update()
+        {
+            //Auto Refresh Counter
+            if (DateTime.Now > nextTimeRefresh)
+            {
+                if (updateTrasverser)
+                {
+                    if (DateTime.Now >= timmerTraverser)
+                    {
+                        if (!sceneMeta)
+                        {
+                            CheckAndGetDclSceneMetaObject();
+                        }
+
+                        sceneMeta.RefreshStatistics();
+                        Repaint();
+                        nextTimeRefresh = DateTime.Now.AddSeconds(1);
+                        timmerTraverser = DateTime.Now.AddSeconds(timeUpdateTrasverser);
+                    }
+                }
+                else
+                {
+                    if (timmerTraverser.Second > 0.0f)
+                    {
+                        timmerTraverser = DateTime.MinValue;
+                    }
+                }
+
+            }
+        }
         void OnInspectorUpdate()
         {
+            //Check if the given path exist and is a DCL Project
             dclProjectExist = Directory.Exists(exportPath + "/src") && File.Exists(exportPath + "/scene.json") && File.Exists(exportPath + "/package-lock.json");
             Repaint();
         }
@@ -107,119 +158,100 @@ namespace DCLExport
             
             EditorGUI.BeginChangeCheck();
 
-            exportPath = EditorPrefs.GetString("DclExportPath");
-
-            if (string.IsNullOrEmpty(nodeVersion) || string.IsNullOrEmpty(npmVersion) || string.IsNullOrEmpty(gltfVersion) || string.IsNullOrEmpty(dclCliVersion))
+            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
+            toolBarIndex = GUILayout.Toolbar(toolBarIndex, new string[] { "Config", "Manager", "Builder", "Exporter"}, GUILayout.Height(25));
+            GUI.backgroundColor = oriColor;
+            
+            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
+            switch (toolBarIndex)
             {
-                MissingDependenciesGUI();
+                // CONFIG //
+                case 0:
+                    TitleGUI();
+                    GUILayout.Space(SPACE);
+                    HandleDependenciesGUI();
+                    GUILayout.Space(SPACE);
+                    DependenciesGUI();
+                    GUILayout.Space(SPACE);
+                    ProjectSetUp();
+                    break;
+                // MANAGER //
+                case 1:
+                    if (!dclProjectExist)
+                    {
+                        ShowNotification(new GUIContent("Please, set up a project folder or create one first"), 0.1f);
+                        ProjectSetUp();
+                        break;
+                    }
+                    if (nodeVersion == "not found" || npmVersion == "not found" || gltfVersion == "not found" || dclCliVersion == "not found")
+                    {
+                        ShowNotification(new GUIContent("Please, check dependencies first"), 0.1f);
+                        DependenciesGUI();
+                        break;
+                    }
 
-                GUILayout.FlexibleSpace();
+                    SceneDataGUI();
+                    GUILayout.Space(SPACE);
+                    SpawnPointsGUI();
+                    GUILayout.Space(SPACE);
+                    permissionsGUI();
+                    break;
+                // BUILDER //
+                case 2:
+                    if (!dclProjectExist)
+                    {
+                        ShowNotification(new GUIContent("Please, set up a project folder or create one first"), 0.1f);
+                        ProjectSetUp();
+                        break;
+                    }
+                    if (nodeVersion == "not found" || npmVersion == "not found" || gltfVersion == "not found" || dclCliVersion == "not found")
+                    {
+                        ShowNotification(new GUIContent("Please, check dependencies first"), 0.1f);
+                        DependenciesGUI();
+                        break;
+                    }
 
-                LinkButtons();
+                    StatsGUI();
+                    GUILayout.Space(SPACE);
+                    SkyboxGUI();
+                    break;
+                // EXPORTER //
+                case 3:
+                    if (!dclProjectExist)
+                    {
+                        ShowNotification(new GUIContent("Please, set up a project folder or create one first"), 0.1f);
+                        ProjectSetUp();
+                        break;
+                    }
+                    if (nodeVersion == "not found" || npmVersion == "not found" || gltfVersion == "not found" || dclCliVersion == "not found")
+                    {
+                        ShowNotification(new GUIContent("Please, check dependencies first"), 0.1f);
+                        DependenciesGUI();
+                        break;
+                    }
 
-                if (EditorGUI.EndChangeCheck())
-                {
-                    EditorUtility.SetDirty(sceneMeta);
-                    EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
-                }
-                return;
+                    DclPathGUI();
+                    GUILayout.Space(SPACE);
+                    ProjectCoreGUI();
+                    GUILayout.Space(SPACE);
+                    ExportRunDebugGUI();
+                    break;
             }
             
-            DependenciesGUI();
-
-            GUILayout.Space(SPACE);
-
-            if (!Directory.Exists(exportPath) || !dclProjectExist)
-            {
-                InitialGUI();
-                
-                ShowNotification(new GUIContent("You need to select a valid Decentraland project folder"), 0.1f);
-
-                GUILayout.FlexibleSpace();
-
-                LinkButtons();
-                
-                if (EditorGUI.EndChangeCheck())
-                {
-                    EditorUtility.SetDirty(sceneMeta);
-                    EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
-                }
-                return;
-            }
-
-            DclPathGUI();
-
-            GUILayout.Space(SPACE);
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-
-            DclCliGUI();
-
-            GUILayout.Space(SPACE);
-
-            DclProjectGUI();
-
-            GUILayout.Space(SPACE);
-
-            SetDayTime();
-
-            GUILayout.Space(SPACE);
-
-            StatGUI();
-
-            GUILayout.Space(SPACE);
-
-            SceneDataGUI();
-
-            GUILayout.Space(SPACE);
-
-            EditorGUILayout.EndScrollView();
-
             GUILayout.FlexibleSpace();
-
-            ExportButtons();
-
+            EditorGUILayout.EndScrollView();
+            
+            //Footer buttons
             LinkButtons();
-
+            
             if (EditorGUI.EndChangeCheck())
             {
-                EditorUtility.SetDirty(sceneMeta);
-                EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
+                //EditorUtility.SetDirty(sceneMeta);
+                //EditorSceneManager.MarkSceneDirty(sceneMeta.gameObject.scene);
             }
         }
-        private void ExportButtons()
-        {
-            if (!dclProjectExist) return;
-            
-            EditorGUILayout.BeginVertical("box");
-            GUI.backgroundColor = new Color(1f, 0.8f, 1f);
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Export 3D Models", GUILayout.Height(26)))
-            {
-                saveOpenScenes();
-                Export(false, true, false);
-            }
-            if (GUILayout.Button("Export Scripts", GUILayout.Height(26)))
-            {
-                saveOpenScenes();
-                Export(true, false, false);
-            }
-            if (GUILayout.Button("Export Metadata", GUILayout.Height(26)))
-            {
-                saveOpenScenes();
-                Export(false, false, true);
-            }
-            EditorGUILayout.EndHorizontal();
-            
-            GUILayout.Space(SPACE);
-            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            if (GUILayout.Button("Export", GUILayout.Height(32)))
-            {
-                saveOpenScenes();
-                Export();
-            }
-            GUI.backgroundColor = oriColor;
-            EditorGUILayout.EndVertical();
-        }
+
+        // SAVE UNITY OPEN SCENES
         private void saveOpenScenes()
         {
             if (EditorUtility.DisplayDialog("Save Open Scenes?", "Do you want to save the open scenes before the export?", "Yes", "No"))
@@ -228,31 +260,74 @@ namespace DCLExport
                 Debug.Log("===Open scenes saved===");
             }
         }
+        
+        // FOOTER BUTTONS GUI
         private void LinkButtons()
         {
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button(string.Format("Github Repository:\n{0}", "https://github.com/PolygonalMind/dcl-dev-exportersdk7-release"), EditorStyles.helpBox))
+            if (GUILayout.Button(Resources.Load<Texture>("Icons/dclLogo"), EditorStyles.helpBox, GUILayout.Height(32), GUILayout.Width(32)))
+            {
+                Application.OpenURL("https://decentraland.org/");
+            }
+            if (GUILayout.Button(string.Format("Github Repository:\n{0}", "https://github.com/PolygonalMind/dcl-dev-exportersdk7-release"), EditorStyles.helpBox, GUILayout.Height(32)))
             {
                 Application.OpenURL("https://github.com/PolygonalMind/dcl-dev-exportersdk7-release");
             }
-            if (GUILayout.Button(string.Format("By PolygonalMind:\n{0}", "https://www.polygonalmind.com/"), EditorStyles.helpBox))
+            if (GUILayout.Button(string.Format("By PolygonalMind:\n{0}", "https://www.polygonalmind.com/"), EditorStyles.helpBox, GUILayout.Height(32)))
             {
                 Application.OpenURL("https://www.polygonalmind.com/");
             }
             EditorGUILayout.EndHorizontal();
         }
-        private void MissingDependenciesGUI()
+
+        // DECENTRALAND TITLE
+        private void TitleGUI()
         {
             EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("Dependencies:\nNodeJS, Npm, Gltf-Pipeline and Dcl CLI\nNeeded to run this package correctly", warningStyle);
-            EditorGUILayout.EndVertical();
 
             GUILayout.Space(SPACE);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUILayout.Box(Resources.Load<Texture>("Icons/dclLogo"));
+            GUILayout.Space(SPACE);
+            GUILayout.Label("Decentraland", titleStyle);
+            GUILayout.Space(SPACE);
+            GUILayout.Label("\nSDK7", blackLabelStyle);
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("1.- Download and install NodeJS if you don't have it\n Npm will be installed automatically with the NodeJS installer", labelStyle);
+            GUILayout.Label(string.Format("Current Version: {0}", version), blackLabelStyle);
+            GUILayout.Space(SPACE);
+
+            GUILayout.Label("", GUI.skin.horizontalSlider); //Horizontal line
+
+            GUILayout.Space(20f);
+            GUILayout.Label("To make this tool run properly and be able to test it in your local\n" +
+                "machine you need to install Node.js and Decentraland dependencies.\n" +
+                "These assets will allow you to quick test and preview your scene\n" +
+                "code in a local machine and also prepare the project for deployment.", blackLabelStyle);
+            GUILayout.Space(20f);
+            EditorGUILayout.EndVertical();
+        }
+
+        // HANDLE DEPENDENCIES GUI
+        private void HandleDependenciesGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.BeginVertical();
+
+            GUILayout.Space(SPACE);
+            GUILayout.Label("Follow the next steps and/or hit Check Dependencies\n" +
+                "to start using the tool", labelStyle, GUILayout.Width(defaultWidth));
+            GUILayout.Space(SPACE);
             
-            if (GUILayout.Button("Download NodeJS Installer", GUILayout.Height(32)))
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("1", "Button", GUILayout.Height(25), GUILayout.Width(25));
+            GUILayout.Space(30f);
+            GUILayout.Label("Download and install NodeJS\nif you don't have it already.", blackLabelStyle, GUILayout.Width(200));
+            GUILayout.Space(30f);
+            if (GUILayout.Button("Download", GUILayout.Height(25), GUILayout.Width(100)))
             {
                 if (EditorUtility.DisplayDialog("Confirm to open NodeJS website",
                     "This will open NodeJS website in your browser\nAre you sure?", "Yes", "No"))
@@ -260,25 +335,25 @@ namespace DCLExport
                     Application.OpenURL("https://nodejs.org");
                 }
             }
-            EditorGUILayout.EndVertical();
+            GUILayout.EndHorizontal();
 
             GUILayout.Space(SPACE);
 
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("2.- Install Gltf-Pipeline if you don't have it already (NodeJS & Npm needed)", labelStyle);
-            
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Install Gltf-Pipeline", GUILayout.Height(32)))
+            GUILayout.Label("2", "Button", GUILayout.Height(25), GUILayout.Width(25));
+            GUILayout.Space(30f);
+            GUILayout.Label("Install the GLTF Pipeline, this\nwill allow you to export the assets.", blackLabelStyle, GUILayout.Width(200));
+            GUILayout.Space(30f);
+            if (GUILayout.Button("Install", GUILayout.Height(25), GUILayout.Width(76)))
             {
-                if (EditorUtility.DisplayDialog("Confirm to install Gltf-pipeline",
-                    "Are you sure to install Gltf-pipeline?", "Yes", "No"))
+                if (EditorUtility.DisplayDialog("GLTF Pipeline",
+                    "This will install the GLTF Pipeline in your machine.\nAre you sure?", "Yes", "No"))
                 {
                     RunCommand.GltfPipeline();
                 }
             }
-            
             GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-            if (GUILayout.Button("Uninstall", GUILayout.Height(32), GUILayout.Width(100)))
+            if (GUILayout.Button("X", GUILayout.Height(25), GUILayout.Width(20)))
             {
                 RunCommand.UninstallGltfPipeline();
                 gltfVersion = null;
@@ -286,24 +361,24 @@ namespace DCLExport
             }
             GUI.backgroundColor = oriColor;
             GUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
+            
             GUILayout.Space(SPACE);
 
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("3.- Install Dcl CLI if you don't have it already (NodeJS & Npm needed)", labelStyle);
-
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Install Dcl CLI", GUILayout.Height(32)))
+            GUILayout.Label("3", "Button", GUILayout.Height(25), GUILayout.Width(25));
+            GUILayout.Space(30f);
+            GUILayout.Label("Install the Decentraland CLI\nto be able to run the projects.", blackLabelStyle, GUILayout.Width(200));
+            GUILayout.Space(30f);
+            if (GUILayout.Button("Install", GUILayout.Height(25), GUILayout.Width(76)))
             {
-                if (EditorUtility.DisplayDialog("Confirm to install Dcl CLI",
-                    "Are you sure to install Dcl CLI?", "Yes", "No"))
+                if (EditorUtility.DisplayDialog("Decentraland CLI",
+                    "This will install the Decentraland CLI in your machine.\nAre you sure?", "Yes", "No"))
                 {
                     RunCommand.DclUpdateCLI(exportPath);
                 }
             }
-
             GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-            if (GUILayout.Button("Uninstall", GUILayout.Height(32), GUILayout.Width(100)))
+            if (GUILayout.Button("X", GUILayout.Height(25), GUILayout.Width(20)))
             {
                 RunCommand.DclUninstallCLI(exportPath);
                 dclCliVersion = null;
@@ -311,105 +386,105 @@ namespace DCLExport
             }
             GUI.backgroundColor = oriColor;
             GUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
             
             GUILayout.Space(SPACE);
 
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("4.- Check if all the dependencies are installed to start using the tool", labelStyle);
-
+            GUILayout.BeginHorizontal();
             GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            if (GUILayout.Button("Check Dependencies", GUILayout.Height(32)))
+            if (GUILayout.Button("Check Dependencies", GUILayout.Height(35), GUILayout.Width(defaultWidth)))
             {
                 RunCommand.DependencieCheck();
-                ShowNotification(new GUIContent("Checking for Dependencies"), 0.5f);
+                ShowNotification(new GUIContent("Checking for Dependencies"), 0.2f);
             }
             GUI.backgroundColor = oriColor;
-            EditorGUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
+
+        // DEPENDENCIES INFO GUI
         private void DependenciesGUI()
         {
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(string.Format("NodeJS: <color=#A8EDA8>{0}</color>", nodeVersion), labelStyle);
-            GUILayout.Space(SPACE);
-            GUILayout.Label(string.Format("Npm: <color=#A8EDA8>{0}</color>", npmVersion), labelStyle);
-            GUILayout.Space(SPACE);
-            GUILayout.Label(string.Format("Gltf-Pipeline: <color=#A8EDA8>{0}</color>", gltfVersion), labelStyle);
-            GUILayout.Space(SPACE);
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical();
 
+            GUILayout.Label("Decentraland Toolkit Version Control", labelStyle, GUILayout.Width(defaultWidth));
+            GUILayout.Space(SPACE);
+            
+            GUILayout.BeginHorizontal();
+            EditorGUILayout.BeginVertical();
+            GUILayout.Label("NodeJS", blackLabelStyle, GUILayout.Width(80));
+            if (nodeFound) stringColor = "<color=#A8EDA8>{0}</color>";
+            else stringColor = "<color=#F0637F>{0}</color>";
+            GUILayout.Label(string.Format(stringColor, nodeVersion), blackLabelStyle, GUILayout.Width(80));
+            EditorGUILayout.EndVertical();
+            
+            EditorGUILayout.BeginVertical();
+            if (npmFound) stringColor = "<color=#A8EDA8>{0}</color>";
+            else stringColor = "<color=#F0637F>{0}</color>";
+            GUILayout.Label("Npm", blackLabelStyle, GUILayout.Width(80));
+            GUILayout.Label(string.Format(stringColor, npmVersion), blackLabelStyle, GUILayout.Width(80));
+            EditorGUILayout.EndVertical();
+            
+            EditorGUILayout.BeginVertical();
+            if (gltfFound) stringColor = "<color=#A8EDA8>{0}</color>";
+            else stringColor = "<color=#F0637F>{0}</color>";
+            GUILayout.Label("Gltf-Pipeline", blackLabelStyle, GUILayout.Width(80));
+            GUILayout.Label(string.Format(stringColor, gltfVersion), blackLabelStyle, GUILayout.Width(80));
+            EditorGUILayout.EndVertical();
+            
+            EditorGUILayout.BeginVertical();
+            if (dclCliFound) stringColor = "<color=#A8EDA8>{0}</color>";
+            else stringColor = "<color=#F0637F>{0}</color>";
+            GUILayout.Label("CLI", blackLabelStyle, GUILayout.Width(80));
+            GUILayout.Label(string.Format(stringColor, dclCliVersion), blackLabelStyle, GUILayout.Width(80));
+            EditorGUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
             GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            if (GUILayout.Button("Check", GUILayout.Height(16), GUILayout.Width(80)))
+            if (GUILayout.Button("Check Dependencies", GUILayout.Height(35), GUILayout.Width(300)))
             {
                 RunCommand.DependencieCheck();
+                ShowNotification(new GUIContent("Checking for Dependencies"), 0.2f);
             }
-            
             GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-            if (GUILayout.Button("Clear", GUILayout.Height(16), GUILayout.Width(80)))
+            if (GUILayout.Button("Clear", GUILayout.Height(35), GUILayout.Width(100)))
             {
                 clearDeps();
             }
             GUI.backgroundColor = oriColor;
             GUILayout.EndHorizontal();
+
             EditorGUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
         }
-        private void InitialGUI()
+
+        // PROJECT SETUP, LOCATE OR CREATE DCL PROJECT
+        private void ProjectSetUp()
         {
             string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../")) + "Decentraland/";
             if (!Directory.Exists(folder))
                 Directory.CreateDirectory(folder);
-            
-            EditorGUILayout.BeginVertical("box");
-            warningStyle.normal.textColor = Color.green;
-            GUILayout.Label("Welcome to the Decentraland SDK7 Toolkit!\nSelect an option to continue...", warningStyle);
-            warningStyle.normal.textColor = Color.yellow;
-            EditorGUILayout.EndVertical();
 
-            GUILayout.Space(SPACE*4);
 
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label("1.- Use an existing Decentraland project", labelStyle);
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical();
 
-            if (GUILayout.Button("Locate Dcl Project Root", GUILayout.Height(32)))
-            {
-                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", folder, "");
-                if (string.IsNullOrEmpty(newExportPath)) newExportPath = exportPath;
-                autoFindFolders.Clear();
-            }
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Project Setup", labelStyle, GUILayout.Width(85));
+            GUILayout.Label(new GUIContent("[ ? ]", "This can be handled in the Exporter tab of the tool"), labelStyle);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(SPACE);
 
-            GUILayout.Space(SPACE*4);
-            
-            GUILayout.Label("2.- Autofind Decentraland projects in '.../UnityRoot/Decentraland/'", labelStyle);
-            
-            if (GUILayout.Button("Autofind", GUILayout.Height(32)))
-            {
-                AutoFindExport();
-            }
-
-            GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
-            if (autoFindFolders.Count > 0)
-            {
-                GUILayout.Space(SPACE * 4);
-                for (int i = 0; i < autoFindFolders.Count; i++)
-                {
-                    if (GUILayout.Button(Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i]), GUILayout.Height(25)))
-                    {
-                        newExportPath = autoFindFolders[i];
-                        exportPath = newExportPath;
-                        EditorPrefs.SetString("DclExportPath", newExportPath);
-                        ShowNotification(new GUIContent("Path: " + Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i])));
-                        autoFindFolders.Clear();
-                    }
-                }
-                GUILayout.Space(SPACE * 4);
-            }
-            GUI.backgroundColor = oriColor;
-
-            GUILayout.Space(SPACE*4);
-            
-            GUILayout.Label("3.- Create a new Decentraland project", labelStyle);
-
-            if (GUILayout.Button("Create Decentraland project", GUILayout.Height(32)))
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Create a New Project", GUILayout.Height(32), GUILayout.Width(133)))
             {
                 newExportPath = EditorUtility.OpenFolderPanel("Select the folder location", folder, "");
                 if (!string.IsNullOrEmpty(newExportPath))
@@ -433,41 +508,103 @@ namespace DCLExport
                     newExportPath = exportPath;
                 }
             }
-            EditorGUILayout.EndVertical();
             
+            if (GUILayout.Button("Locate Project", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", folder, "");
+                if (string.IsNullOrEmpty(newExportPath)) newExportPath = exportPath;
+                autoFindFolders.Clear();
+            }
+            
+            GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
+            if (GUILayout.Button("Autofind", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                AutoFindExport();
+            }
+            GUI.backgroundColor = oriColor;
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(SPACE);
+
+            if (dclProjectExist) stringColor = "<color=#A8EDA8>{0}</color>";
+            else stringColor = "<color=#F0637F>{0}</color>";
+            
+            if(GUILayout.Button(string.Format("Path:\n" + stringColor, newExportPath), labelStyle, GUILayout.Width(defaultWidth)))
+            {
+                Application.OpenURL(newExportPath);
+            }
+            
+            GUILayout.Space(SPACE);
+
+            if (!Directory.Exists(exportPath) || !dclProjectExist)
+            {
+                GUILayout.Label(string.Format("<color=#F0637F>{0}</color>", "Select a valid Decentraland project root folder to continue"), blackLabelStyle);
+                GUILayout.Space(SPACE);
+            }
+            
+            //AUTOFIND SLOTS
+            if (autoFindFolders.Count > 0)
+            {
+                GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
+                GUILayout.Space(SPACE);
+                for (int i = 0; i < autoFindFolders.Count; i++)
+                {
+                    if (GUILayout.Button(Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i]), GUILayout.Height(25)))
+                    {
+                        newExportPath = autoFindFolders[i];
+                        exportPath = newExportPath;
+                        EditorPrefs.SetString("DclExportPath", newExportPath);
+                        ShowNotification(new GUIContent("Path: " + Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i])), 0.2f);
+                        autoFindFolders.Clear();
+                    }
+                }
+                GUILayout.Space(SPACE);
+                GUI.backgroundColor = oriColor;
+            }
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
             if (newExportPath != exportPath)
             {
                 exportPath = newExportPath;
                 EditorPrefs.SetString("DclExportPath", newExportPath);
             }
         }
+
+        // DCL PATH GUI
         private void DclPathGUI()
         {
-            if (!dclProjectExist) return;
-            
             string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../")) + "Decentraland/";
             if (!Directory.Exists(folder))
                 Directory.CreateDirectory(folder);
-            
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label(string.Format("Dcl Project Path:  <color=#A8EDA8>{0}</color>", newExportPath), labelStyle, GUILayout.Width(100));
+
+
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
 
             GUILayout.BeginHorizontal();
-            newExportPath = EditorGUILayout.TextField(exportPath);
+            GUILayout.Label("Current Export Path", labelStyle);
+            if (GUILayout.Button("Open Folder", GUILayout.Width(130)))
+            {
+                Application.OpenURL(exportPath);
+            }
             GUILayout.EndHorizontal();
+            
+            GUILayout.Space(SPACE);
+
+            stringColor = "<color=#A8EDA8>{0}</color>";
+            if (GUILayout.Button(string.Format(stringColor, newExportPath), labelStyle, GUILayout.Width(defaultWidth)))
+            {
+                Application.OpenURL(newExportPath);
+            }
+            
+            GUILayout.Space(SPACE);
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Wipe Path", GUILayout.Height(24)))
-            {
-                newExportPath = "";
-            }
-            if (GUILayout.Button("Set Dcl Project Root", GUILayout.Height(24)))
-            {
-                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", folder, "");
-                if (string.IsNullOrEmpty(newExportPath)) newExportPath = exportPath;
-                autoFindFolders.Clear();
-            }
-            if (GUILayout.Button("Create Dcl Project", GUILayout.Height(24)))
+            if (GUILayout.Button("Create a New Project", GUILayout.Height(32), GUILayout.Width(133)))
             {
                 newExportPath = EditorUtility.OpenFolderPanel("Select the folder location", folder, "");
                 if (!string.IsNullOrEmpty(newExportPath))
@@ -491,41 +628,35 @@ namespace DCLExport
                     newExportPath = exportPath;
                 }
             }
-            //Check if the project contains /src and scene.json to avoid errors deleting an incorrect folder, this way only can be deleted if its a Dcl project initialiced
 
-            //if (dclProjectExist)
-            //{
-            //    GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-            //    if (GUILayout.Button("Delete Content", GUILayout.Height(24), GUILayout.Width(100)))
-            //    {
-            //        if (EditorUtility.DisplayDialog("Confirm to delete Dcl project directory content",
-            //            string.Format("Are you sure to delete all the Dcl project directory content?\n{0}", exportPath), "Yes", "No"))
-            //        {
-            //            RunCommand.DclDeleteFolderContent(exportPath);
-            //            ShowNotification(new GUIContent("Deleting Dcl project folder content"), 0.5f);
-            //        }
-            //    }
-            //    GUI.backgroundColor = oriColor;
-            //}
+            if (GUILayout.Button("Locate Project", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                newExportPath = EditorUtility.OpenFolderPanel("Select the Decentraland project folder", folder, "");
+                if (string.IsNullOrEmpty(newExportPath)) newExportPath = exportPath;
+                autoFindFolders.Clear();
+            }
 
-            //
             GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
-
-            if (GUILayout.Button("Auto Find", GUILayout.Height(24)))
+            if (GUILayout.Button("Autofind", GUILayout.Height(32), GUILayout.Width(133)))
             {
                 AutoFindExport();
             }
-
-            if (newExportPath != exportPath)
-            {
-                exportPath = newExportPath;
-                EditorPrefs.SetString("DclExportPath", newExportPath);
-            }
+            GUI.backgroundColor = oriColor;
             GUILayout.EndHorizontal();
-            
-            //AutoFind folders show the project list in the UnityProjectRoot/Decentraland folder
+
+            GUILayout.Space(SPACE);
+
+            if (!Directory.Exists(exportPath) || !dclProjectExist)
+            {
+                GUILayout.Label(string.Format("<color=#F0637F>{0}</color>", "Select a valid Decentraland project root folder to continue"), blackLabelStyle);
+                GUILayout.Space(SPACE);
+            }
+
+            //AUTOFIND SLOTS
             if (autoFindFolders.Count > 0)
             {
+                GUI.backgroundColor = new Color(1.0f, 0.8f, 0.5f);
+                GUILayout.Space(SPACE);
                 for (int i = 0; i < autoFindFolders.Count; i++)
                 {
                     if (GUILayout.Button(Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i]), GUILayout.Height(25)))
@@ -533,15 +664,171 @@ namespace DCLExport
                         newExportPath = autoFindFolders[i];
                         exportPath = newExportPath;
                         EditorPrefs.SetString("DclExportPath", newExportPath);
-                        ShowNotification(new GUIContent("Path: " + Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i])));
+                        ShowNotification(new GUIContent("Path: " + Path.GetFileName(Path.GetDirectoryName(autoFindFolders[i])) + "\\" + Path.GetFileName(autoFindFolders[i])), 0.2f);
                         autoFindFolders.Clear();
                     }
                 }
+                GUILayout.Space(SPACE);
+                GUI.backgroundColor = oriColor;
             }
 
-            GUI.backgroundColor = oriColor;
             GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            if (newExportPath != exportPath)
+            {
+                exportPath = newExportPath;
+                EditorPrefs.SetString("DclExportPath", newExportPath);
+            }
         }
+
+        // DCL PROJECT GUI
+        private void ProjectCoreGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
+            
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Project Core", labelStyle);
+            if (dclCliFound) stringColor = "<color=#A8EDA8>{0}</color>";
+            else stringColor = "<color=#F0637F>{0}</color>";
+            GUILayout.Label(string.Format("CLI " + stringColor, dclCliVersion), labelStyle);
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(SPACE);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Init Dcl Project", GUILayout.Height(32)))
+                toolBarIndex = 0;
+            if (GUILayout.Button("Update CLI", GUILayout.Height(32)))
+                toolBarIndex = 0;
+            if (GUILayout.Button("Update Dcl SDK", GUILayout.Height(32)))
+                toolBarIndex = 0;
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(SPACE);
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        // EXPORT & RUN GUI
+        void ExportRunDebugGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
+            
+            GUILayout.Label("Export, Run & Debug", labelStyle);
+            GUILayout.Space(SPACE);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Export 3D Entities as", GUILayout.Width(120));
+            GUILayout.Label(new GUIContent("[ ? ]", "GLB are way faster and lightweight for the engine.\n\n" +
+                "While GLTF + .bin offers more editing flexibility.\n\n" +
+                "GLB + Textures is a good fit for modular enviroments that reuse a lot of textures across entities."), labelStyle);
+            GUILayout.FlexibleSpace();
+            mFormat = (ExportFormat)EditorGUILayout.EnumPopup("", mFormat);
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(SPACE);
+
+            // EXPORT BUTTONS //
+            GUI.backgroundColor = new Color(1f, 0.8f, 1f);
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Export 3D Entities", GUILayout.Height(26), GUILayout.Width(133)))
+            {
+                if (EditorUtility.DisplayDialog("Export 3D", "Do you want to export the 3D entities?", "Yes", "No"))
+                {
+                    saveOpenScenes();
+                    Export(false, true, false);
+                }
+            }
+            if (GUILayout.Button("Export index.ts", GUILayout.Height(26), GUILayout.Width(133)))
+            {
+                if (EditorUtility.DisplayDialog("Export index.ts", "Do you want to export the project index.ts script?", "Yes", "No"))
+                {
+                    saveOpenScenes();
+                    Export(true, false, false);
+                }
+            }
+            if (GUILayout.Button("Export scene.js", GUILayout.Height(26), GUILayout.Width(133)))
+            {
+                if (EditorUtility.DisplayDialog("Export", "Do you want to export the project metadata to the scene.js?", "Yes", "No"))
+                {
+                    saveOpenScenes();
+                    Export(false, false, true);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+            
+            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
+            if (GUILayout.Button("Export", GUILayout.Height(32)))
+            {
+                if (EditorUtility.DisplayDialog("Full Export", "Do you want to do a full export?", "Yes", "No"))
+                {
+                    saveOpenScenes();
+                    Export();
+                }
+            }
+            GUI.backgroundColor = oriColor;
+
+            GUILayout.Space(SPACE);
+            
+            GUILayout.Label(string.Format("Project  <color=#A8EDA8>{0}</color>", Path.GetFileName(exportPath)), labelStyle);
+
+            GUILayout.Space(SPACE);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Open Folder", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                Application.OpenURL(exportPath);
+            }
+            if (GUILayout.Button("Open /unity_assets", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                Application.OpenURL(exportPath + "/unity_assets");
+            }
+            if (GUILayout.Button("Open /images", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                Application.OpenURL(exportPath + "/images");
+            }
+            GUILayout.EndHorizontal();
+            
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Open package.js", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                Application.OpenURL(exportPath + "/package.json");
+            }
+            if (GUILayout.Button("Open index.ts", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                Application.OpenURL(exportPath + "/src/index.ts");
+            }
+            if (GUILayout.Button("Open scene.js", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                Application.OpenURL(exportPath + "/scene.json");
+            }
+            GUILayout.EndHorizontal();
+            
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
+            if (GUILayout.Button("Run Local", GUILayout.Height(32), GUILayout.Width(133)))
+            {
+                RunMenu("");
+            }
+            GUI.backgroundColor = oriColor;
+            GUILayout.EndHorizontal();
+            GUILayout.Space(SPACE);
+
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        // AUTOMATIC DIRECTORY CREATION
         private void recursiveDirectoryCreation(int i)
         {
             if (string.IsNullOrEmpty(newExportPath))
@@ -558,87 +845,36 @@ namespace DCLExport
             }
             Directory.CreateDirectory(newExportPath);
         }
-        private void DclCliGUI()
-        {
-            if (!dclProjectExist) return;
-            
-            EditorGUILayout.BeginVertical("box");
 
-            GUILayout.Label(string.Format("Decentraland CLI:  <color=#A8EDA8>{0}</color>", dclCliVersion), labelStyle);
+        // STATISTICS GUI
+        void StatsGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
+
             GUILayout.BeginHorizontal();
-            GUI.backgroundColor = new Color(1f, 0.8f, 1f);
-            if (GUILayout.Button("Init Dcl Project", GUILayout.Height(32)))
+            GUILayout.Label("Scene Stats", labelStyle, GUILayout.Width(80));
+            GUILayout.Label(new GUIContent("[ ? ]", "Scene limitations are based on ECS limitations"), labelStyle);
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical();
+            GUILayout.Space(SPACE);
+            showBoundingBoxes = EditorGUILayout.ToggleLeft("Show bounds on selection", showBoundingBoxes);
+            //GUILayout.Space(SPACE);
+            //showMaxHeight = EditorGUILayout.ToggleLeft("Show max height", showMaxHeight);
+            GUILayout.EndVertical();
+            
+            GUILayout.BeginVertical();
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("ECS Limitations", GUILayout.Width(100)))
             {
-                if (Directory.GetFiles(exportPath).Length != 0 || Directory.GetDirectories(exportPath).Length != 0)
-                {
-                    Debug.LogError("The selected directory: " + exportPath + "\nIs not empty, select a valid path to Init a Decentraland project");
-                }
-                else
-                {
-                    if (EditorUtility.DisplayDialog("Confirm to init Decentraland",
-                        string.Format("Are you sure to init Decentraland in this path?\n{0}", exportPath), "Yes", "No"))
-                    {
-                        RunCommand.DclInit(exportPath);
-                    }
-                }
-            }
-            GUI.backgroundColor = oriColor;
-            if (GUILayout.Button("Update CLI", GUILayout.Height(32)))
-            {
-                if (EditorUtility.DisplayDialog("Confirm to update the Dcl CLI",
-                    "Are you sure to update the Dcl CLI?", "Yes", "No"))
-                {
-                    RunCommand.DclUpdateCLI(exportPath);
-                }
-            }
-            if (dclProjectExist)
-            {
-                if (GUILayout.Button("Update Dcl SDK", GUILayout.Height(32)))
-                {
-                    if (EditorUtility.DisplayDialog("Confirm to update the Dcl SDK",
-                        string.Format("Are you sure to update the dcl SDK in this path?\n{0}", exportPath), "Yes", "No"))
-                    {
-                        RunCommand.DclUpdateSdk(exportPath);
-                    }
-                } 
+                Application.OpenURL("https://docs.decentraland.org/creator/development-guide/scene-limitations/");
             }
             GUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
-        }
-        void StatGUI()
-        {
-            if (!dclProjectExist) return;
             
-            EditorGUILayout.BeginVertical("box");
-
-            GUILayout.Label(string.Format("Statistics:", dclCliVersion), labelStyle);
-
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.BeginVertical(GUILayout.MinWidth(200));
-            EditorGUILayout.Space(SPACE);
-
-            GUI.backgroundColor = new Color(0.6f, 1.0f, 0.6f);
-            if (GUILayout.Button("Refresh", GUILayout.MinHeight(25)))
-            {
-                sceneMeta.RefreshStatistics();
-                sceneMeta.getParcelSetVolumes();
-            }
-            GUI.backgroundColor = oriColor;
-            EditorGUILayout.Space(SPACE);
-            updateTrasverser = EditorGUILayout.ToggleLeft("Autorefresh", updateTrasverser, GUILayout.MaxWidth(100));
-            EditorGUILayout.Space(SPACE);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Refresh Interval:", GUILayout.MaxWidth(100));
-            timeUpdateTrasverser = EditorGUILayout.FloatField(timeUpdateTrasverser, GUILayout.MaxWidth(60));
-            GUILayout.Label("s");
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
-            EditorGUILayout.Space(SPACE);
-            EditorGUILayout.BeginVertical();
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Keep these numbers smaller than the righty", EditorStyles.centeredGreyMiniLabel);
-            EditorGUILayout.EndHorizontal();
             var n = sceneMeta.parcels.Count;
             var sceneStatistics = sceneMeta.sceneStatistics;
             StatisticsLineGUI("Triangles", sceneStatistics.triangleCount, LimitationConfigs.GetMaxTriangles(n));
@@ -647,74 +883,54 @@ namespace DCLExport
             StatisticsLineGUI("Materials", (long)sceneStatistics.materialCount, LimitationConfigs.GetMaxMaterials(n));
             StatisticsLineGUI("Textures", (long)sceneStatistics.textureCount, LimitationConfigs.GetMaxTextures(n));
             StatisticsLineGUI("Height", (long)sceneStatistics.maxHeight, LimitationConfigs.GetMaxHeight(n));
-            EditorGUILayout.LabelField("GLTFs", sceneStatistics.gltfCount.ToString());
-            EditorGUILayout.LabelField("DCL Primitives", sceneStatistics.primitiveCount.ToString());
-            EditorGUILayout.EndVertical();
-            EditorGUILayout.EndVertical();
-
-            EditorGUILayout.Space(SPACE);
-            mFormat = (ExportFormat)EditorGUILayout.EnumPopup("Gltf Type:", mFormat);
-            showBoundingBoxes = EditorGUILayout.ToggleLeft("Show bounding boxes", showBoundingBoxes);
-            EditorGUILayout.Space(SPACE);
-
-            WarningsGUI();
-            EditorGUILayout.EndHorizontal();
-        }
-        private void DclProjectGUI()
-        {
-            if (!dclProjectExist) return;
-
-            EditorGUILayout.BeginVertical("box");
-            GUILayout.Label(string.Format("Decentraland Project:  <color=#A8EDA8>{0}</color>", Path.GetFileName(exportPath)), labelStyle);
             GUILayout.BeginHorizontal();
+            GUILayout.Label("GLTFs");
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(sceneStatistics.gltfCount.ToString());
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("DCL Primitives");
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(sceneStatistics.primitiveCount.ToString());
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
 
-            if (GUILayout.Button("Open Folder", GUILayout.Height(32)))
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(SPACE);
+
+            GUILayout.BeginHorizontal();
+            updateTrasverser = EditorGUILayout.ToggleLeft("", updateTrasverser, GUILayout.Width(20));
+            GUILayout.Label("Autorefresh every ", GUILayout.Width(105));
+            timeUpdateTrasverser = EditorGUILayout.FloatField(timeUpdateTrasverser, GUILayout.Width(40));
+            GUILayout.Label("seconds", GUILayout.Width(50));
+            GUILayout.FlexibleSpace();
+            GUI.backgroundColor = new Color(0.6f, 1.0f, 0.6f);
+            if (GUILayout.Button("Refresh", GUILayout.Height(25), GUILayout.Width(100)))
             {
-                Application.OpenURL(exportPath);
-            }
-            GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            if (GUILayout.Button("Run Local Preview", GUILayout.Height(32)))
-            {
-                RunMenu("");
-                //GenericMenu menu = new GenericMenu();
-                //menu.AddItem(new GUIContent("Run Local"), false, RunMenu, "");
-                //menu.AddItem(new GUIContent("Run Local No Debug"), false, RunMenu, " --no-debug");
-                //menu.AddItem(new GUIContent("Run Web3"), false, RunMenu, " --web3");
-                //menu.AddItem(new GUIContent("Run Web3 No Debug"), false, RunMenu, " --web3 --no-debug");
-                //menu.ShowAsContext();
+                sceneMeta.RefreshStatistics();
+                sceneMeta.getParcelSetVolumes();
             }
             GUI.backgroundColor = oriColor;
             GUILayout.EndHorizontal();
-            
-            GUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Open scene.json", GUILayout.Height(32)))
-            {
-                Application.OpenURL(exportPath + "/scene.json");
-            }
-            if (GUILayout.Button("Open package.json", GUILayout.Height(32)))
-            {
-                Application.OpenURL(exportPath + "/package.json");
-            }
-            if (GUILayout.Button("Open index.ts", GUILayout.Height(32)))
-            {
-                Application.OpenURL(exportPath + "/src/index.ts");
-            }
-
-            GUILayout.EndHorizontal();
-
-            GUILayout.Space(SPACE);
-
+            WarningsGUI();
 
             GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
-        private void SetDayTime()
-        {
-            if (!dclProjectExist) return;
 
-            EditorGUILayout.BeginVertical("Box");
-            GUILayout.Label("Skybox & Illumination Time:", labelStyle);
-            EditorGUILayout.BeginHorizontal();
+        // SET SKYBOX & ILLUMINATION GUI
+        private void SkyboxGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
+            
+            GUILayout.Label("Illumination and Reflections Preview", labelStyle);
+            GUILayout.Space(SPACE);
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("00:00"))
             {
                 lightRotation = Quaternion.Euler(183, -45, -90);
@@ -749,8 +965,8 @@ namespace DCLExport
                 
                 SetSkyboxTime(08, 1.1f, true);
             }
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.BeginHorizontal();
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
             if (GUILayout.Button("12:00"))
             {
                 lightRotation = Quaternion.Euler(89, -45, -90);
@@ -784,98 +1000,141 @@ namespace DCLExport
 
                 SetSkyboxTime(20, 1f, true);
             }
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+            
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
+
+        // SCENE METADATA GUI
         private void SceneDataGUI()
         {
-            if (!dclProjectExist) return;
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.BeginVertical(GUILayout.Width(defaultWidth));
             
-            EditorGUILayout.BeginVertical("box");
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Scene Metadata", labelStyle);
+            GUILayout.Label(new GUIContent("[ ? ]", "Scene Metadata is used during your playtime in Decentraland to show to the user the Scene name, it's preview and creator"), labelStyle, GUILayout.Width(300));
+            GUILayout.EndHorizontal();
+            GUILayout.Space(SPACE);
 
-            var oriFoldout = EditorPrefs.GetBool("DclMetadata");
-            var foldout = EditorGUILayout.Foldout(oriFoldout, "Scene Metadata", true);
-            if (foldout)
+            if (GUILayout.Button("Open Parcel Manager", GUILayout.Height(16), GUILayout.Width(defaultWidth)))
             {
-                EditorGUI.indentLevel = 1;
-
-                if (GUILayout.Button("Open Parcel Manager", GUILayout.Height(16)))
-                {
-                    ParcelManager pm = GetWindow<ParcelManager>();
-                    pm.titleContent = new GUIContent("ParcelManager");
-                    pm.minSize = new Vector2(325, 400);
-                    pm.maxSize = new Vector2(325, 800);
-                    pm.Show();
-                }
-                EditorGUILayout.LabelField("Land General Info", EditorStyles.boldLabel);
-                sceneMeta.landTitle = EditorGUILayout.TextField("Land Name", sceneMeta.landTitle); // title of the land
-                EditorGUILayout.LabelField("Land Description");
-                GUIStyle style = new GUIStyle(EditorStyles.textArea);
-                style.wordWrap = true;
-                sceneMeta.landInfo = EditorGUILayout.TextArea(sceneMeta.landInfo, style);
-                sceneMeta.landImg = EditorGUILayout.TextField("Land Thumbnail", sceneMeta.landImg); // url or uri to a jpg containing the thumbnail to be seen from the Atlas
-
-                EditorGUILayout.LabelField("Land Owner Info", EditorStyles.boldLabel);
-                sceneMeta.ethAddress = EditorGUILayout.TextField("Address", sceneMeta.ethAddress); //"owner" stands for ETH Address holding this LAND
-                sceneMeta.contactName = EditorGUILayout.TextField("Name", sceneMeta.contactName); // Name of the owner
-                sceneMeta.email = EditorGUILayout.TextField("Email", sceneMeta.email); // Email or contact form of the owner
-
-                EditorGUILayout.BeginVertical("box");
-
-                var oriFoldout2 = EditorPrefs.GetBool("DclSpawn");
-                var spawnFoldout = EditorGUILayout.Foldout(oriFoldout2, "SpawnPoints, use size for Area", true, EditorStyles.foldout);
-                if (spawnFoldout)
-                {
-                    EditorGUI.indentLevel = 2;
-                    foreach (Transform transform in sceneMeta.spawnPoints)
-                    {
-                        EditorGUILayout.LabelField(transform.name + ": ", EditorStyles.boldLabel);
-                        GUILayout.BeginHorizontal("Box");
-                        transform.localPosition = EditorGUILayout.Vector3Field("Position", transform.localPosition);
-                        transform.localScale = EditorGUILayout.Vector3Field("Size", transform.localScale);
-                        GUILayout.EndHorizontal();
-                    }
-
-                    GUILayout.BeginHorizontal();
-                    if (GUILayout.Button("Add Spawn", EditorStyles.miniButtonRight))
-                    {
-                        GameObject go = new GameObject();
-                        go.name = "spawnPoint" + (sceneMeta.spawnPoints.Count>0? sceneMeta.spawnPoints.Count : 0) + "DCL";
-                        go.transform.parent = sceneMeta.gameObject.transform;
-                        sceneMeta.spawnPoints.Add(go.transform);
-                    }
-                    if(sceneMeta.spawnPoints.Count > 1)
-                    {
-                        if (GUILayout.Button("Remove Last", EditorStyles.miniButtonRight))
-                        {
-                            DestroyImmediate(sceneMeta.spawnPoints[sceneMeta.spawnPoints.Count - 1].gameObject);
-                            sceneMeta.spawnPoints.RemoveAt(sceneMeta.spawnPoints.Count - 1);
-                            sceneMeta.spawnPoints.Capacity -= 1;
-                        }
-                    }
-                    GUILayout.EndHorizontal();
-
-                    GUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField("Use Custom Camera Target (Look at direction vector)", GUILayout.Width(320));
-                    sceneMeta.allowCCT = EditorGUILayout.Toggle(sceneMeta.allowCCT);
-                    GUILayout.EndHorizontal();
-                    if (sceneMeta.allowCCT)
-                    {
-                        sceneMeta.rotX = EditorGUILayout.FloatField("Set X", sceneMeta.rotX);
-                        sceneMeta.rotY = EditorGUILayout.FloatField("Set Y", sceneMeta.rotY);
-                        sceneMeta.rotZ = EditorGUILayout.FloatField("Set Z", sceneMeta.rotZ);
-                    }
-                }
-                if (spawnFoldout != oriFoldout2) EditorPrefs.SetBool("DclSpawn", spawnFoldout);
-
-                EditorGUILayout.EndVertical();
-                EditorGUI.indentLevel = 0;
+                ParcelManager.Init();  
             }
+            EditorGUILayout.LabelField("Land General Info", EditorStyles.boldLabel);
+            sceneMeta.landTitle = EditorGUILayout.TextField("Land Name", sceneMeta.landTitle); // title of the land
+            EditorGUILayout.LabelField("Land Description");
+            GUIStyle style = new GUIStyle(EditorStyles.textArea);
+            style.wordWrap = true;
+            sceneMeta.landInfo = EditorGUILayout.TextArea(sceneMeta.landInfo, style);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Land Thumbnail", GUILayout.Width(100));
+            GUILayout.Label(new GUIContent("[ ? ]", "If you let this field empty, the thumbnail image will be the default"), labelStyle);
+            thumbnailImage = (Texture2D)EditorGUILayout.ObjectField(thumbnailImage, typeof(Texture2D), true);
+            GUILayout.EndHorizontal();
+            //sceneMeta.landImg = EditorGUILayout.TextField("Land Thumbnail", sceneMeta.landImg); // url or uri to a jpg containing the thumbnail to be seen from the Atlas
 
-            if (foldout != oriFoldout) EditorPrefs.SetBool("DclMetadata", foldout);
+            GUILayout.Space(SPACE);
+            
+            EditorGUILayout.LabelField("Land Owner Info", EditorStyles.boldLabel);
+            sceneMeta.ethAddress = EditorGUILayout.TextField("Address", sceneMeta.ethAddress); //"owner" stands for ETH Address holding this LAND
+            sceneMeta.contactName = EditorGUILayout.TextField("Name", sceneMeta.contactName); // Name of the owner
+            sceneMeta.email = EditorGUILayout.TextField("Email", sceneMeta.email); // Email or contact form of the owner
 
             EditorGUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
+        
+        // SPAWN POINT/AREA GUI
+        private void SpawnPointsGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
+            
+            GUILayout.Label("Spawn Points", labelStyle);
+            GUILayout.Space(SPACE);
+            GUILayout.Label("Locate Spawns in the scene and assign them here. Using the property\nsize will turn your Spawn into a Spawn Area");
+            
+            foreach (Transform transform in sceneMeta.spawnPoints)
+            {
+                EditorGUILayout.LabelField(transform.name + ": ", EditorStyles.boldLabel);
+                GUILayout.BeginHorizontal();
+                transform.localPosition = EditorGUILayout.Vector3Field("Position", transform.localPosition, GUILayout.Width(190));
+                transform.localScale = EditorGUILayout.Vector3Field("Size", transform.localScale, GUILayout.Width(190));
+                GUILayout.EndHorizontal();
+            }
+            
+            GUILayout.Space(SPACE);
+            
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Add Spawn", GUILayout.MaxWidth(380)))
+            {
+                GameObject go = new GameObject();
+                go.name = "spawnPoint" + (sceneMeta.spawnPoints.Count > 0 ? sceneMeta.spawnPoints.Count : 0) + "DCL";
+                go.transform.parent = sceneMeta.gameObject.transform;
+                sceneMeta.spawnPoints.Add(go.transform);
+            }
+            if (sceneMeta.spawnPoints.Count > 1)
+            {
+                if (GUILayout.Button("Remove Last", EditorStyles.miniButtonRight, GUILayout.Width(120)))
+                {
+                    DestroyImmediate(sceneMeta.spawnPoints[sceneMeta.spawnPoints.Count - 1].gameObject);
+                    sceneMeta.spawnPoints.RemoveAt(sceneMeta.spawnPoints.Count - 1);
+                    sceneMeta.spawnPoints.Capacity -= 1;
+                }
+            }
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(SPACE);
+            
+            GUILayout.BeginHorizontal();
+            sceneMeta.allowCCT = EditorGUILayout.ToggleLeft("Use Custom Look at direction" ,sceneMeta.allowCCT, GUILayout.Width(190));
+            GUILayout.Label(new GUIContent("[ ? ]", "If false, the player will be oriented to the +Z axis"), labelStyle);
+            GUILayout.EndHorizontal();
+            
+            if (sceneMeta.allowCCT)
+            {
+                sceneMeta.rotX = EditorGUILayout.FloatField("Set X", sceneMeta.rotX);
+                sceneMeta.rotY = EditorGUILayout.FloatField("Set Y", sceneMeta.rotY);
+                sceneMeta.rotZ = EditorGUILayout.FloatField("Set Z", sceneMeta.rotZ);
+            }
+            GUILayout.Space(SPACE);
+            
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+
+        // SPECIAL PERMISSIONS GUI
+        void permissionsGUI()
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginVertical(GUILayout.Width(defaultWidth));
+
+            GUILayout.Label("Special Permissions", labelStyle);
+            
+            GUILayout.Space(SPACE);
+            
+            GUILayout.Label("Some gameplay configurations require special permissions\nfrom the scene to the player");
+
+            GUILayout.Space(SPACE);
+            
+            sceneMeta.voiceChatEnabled = EditorGUILayout.ToggleLeft("Enable voice chat", sceneMeta.voiceChatEnabled);
+            sceneMeta.portableExpEnabled = EditorGUILayout.ToggleLeft("Enable portable experiences", sceneMeta.portableExpEnabled);
+
+            GUILayout.Space(SPACE);
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+        }
+        
+        // RUN LOCAL PREVIEW
         private void RunMenu(object str)
         {
             string type = (string)str;
@@ -883,25 +1142,27 @@ namespace DCLExport
             if (EditorUtility.DisplayDialog("Confirm to run Dcl", "Are you sure to run the Dcl scene?", "Yes", "No"))
             {
                 RunCommand.DclRunStart(exportPath, type);
-                ShowNotification(new GUIContent("Decentraland is Starting"));
+                ShowNotification(new GUIContent("Decentraland is Starting"), 0.1f);
             }
         }
         
+        // CLEAR DEPENDENCIES
         public static void clearDeps()
         {
-            nodeVersion = null;
-            npmVersion = null;
-            gltfVersion = null;
-            dclCliVersion = null;
+            nodeVersion = "not found";
+            npmVersion = "not found";
+            gltfVersion = "not found";
+            dclCliVersion = "not found";
 
             nodeFound = false;
             npmFound = false;
             gltfFound = false;
             dclCliFound = false;
         }
+
+        // FULL EXPORT
         private void Export(bool exportScripts = true, bool exportModels = true, bool exportMetadata = true)
         {
-
             initialTime = DateTime.Now;
             if (string.IsNullOrEmpty(exportPath))
             {
@@ -983,6 +1244,8 @@ namespace DCLExport
                 }
             }
         }
+
+        // EXPORT 3D MODELS
         private void ExportModels(ResourceRecorder resourceRecorder)
         {
             //Delete all files in exportPath/unity_assets/
@@ -1005,7 +1268,7 @@ namespace DCLExport
 
                 switch (mFormat)
                 {
-                    case ExportFormat.GLTFExternalTextures:
+                    case ExportFormat.GLTFBin:
                         //Default export is glTF with external textures so this option don't need a cmd function
                         break;
                     case ExportFormat.GLBExternalTextures:
@@ -1039,7 +1302,7 @@ namespace DCLExport
                 else
                 {
                     var path = Application.dataPath; //<path to project folder>/Assets
-                    path = path.Remove(path.Length - 6, 6) + relPath;
+                    path = path.Remove(path.Length - 6, 6) + relPath; //Remove /Assets
                     var toPath = unityAssetsFolderPath + relPath;
                     toPath = toPath.Replace (" ", string.Empty);
                     var directoryPath = Path.GetDirectoryName(toPath);
@@ -1089,14 +1352,31 @@ namespace DCLExport
                 Debug.Log("Font out " + relPath);
             }
         }
+
+        // EXPORT METADATA
         private void ExportSceneJson()
         {
+            //Copy image to exportPath/images/
+            if (thumbnailImage != null)
+            {
+                var relPath = AssetDatabase.GetAssetPath(thumbnailImage);
+                var path = Application.dataPath; //<path to project folder>/Assets
+                path = path.Remove(path.Length - 6, 6) + relPath;
+                var toPath = exportPath + "\\images\\" + thumbnailImage.name + ".png";
+                toPath = toPath.Replace(" ", string.Empty);
+                var directoryPath = Path.GetDirectoryName(toPath);
+                if (!Directory.Exists(directoryPath)) Directory.CreateDirectory(directoryPath);
+                File.Copy(path, toPath, true);
+            }
             //Write scene.json
             {
                 var fileTxt = GetSceneJsonFileTemplate();
                 fileTxt = fileTxt.Replace("{LAND_TITLE}", sceneMeta.landTitle);
                 fileTxt = fileTxt.Replace("{LAND_INFO}", sceneMeta.landInfo);
-                fileTxt = fileTxt.Replace("{LAND_IMG}", sceneMeta.landImg);
+                if (thumbnailImage != null)
+                    fileTxt = fileTxt.Replace("{LAND_IMG}", "images/" + thumbnailImage.name + ".png");
+                else
+                    fileTxt = fileTxt.Replace("{LAND_IMG}", "images/scene-thumbnail.png");
 
                 fileTxt = fileTxt.Replace("{CONTACT_NAME}", sceneMeta.contactName);
                 fileTxt = fileTxt.Replace("{CONTACT_EMAIL}", sceneMeta.email);
@@ -1157,12 +1437,14 @@ namespace DCLExport
                 spawnStr.Clear();
 
                 if (sceneMeta.voiceChatEnabled == true)
-                {
                     fileTxt = fileTxt.Replace("{VOICECHAT}", "\"enabled\"");
-                }
                 else
                     fileTxt = fileTxt.Replace("{VOICECHAT}", "\"disabled\"");
-
+                
+                if (sceneMeta.portableExpEnabled == true)
+                    fileTxt = fileTxt.Replace("{PORTABLEEXP}", "\"enabled\"");
+                else
+                    fileTxt = fileTxt.Replace("{PORTABLEEXP}", "\"disabled\"");
 
                 var parcelsString = GetParcelsString();
                 fileTxt = fileTxt.Replace("{PARCELS}", parcelsString);
@@ -1175,6 +1457,8 @@ namespace DCLExport
                 File.WriteAllText(filePath, fileTxt);
             }
         }
+        
+        // GET SCENE.JS TEMPLATE
         string GetSceneJsonFileTemplate()
         {
             var guids = AssetDatabase.FindAssets("dcl_scene_json_template");
@@ -1194,6 +1478,7 @@ namespace DCLExport
             return template.text;
         }
 
+        //GET PARCELS
         string GetParcelsString()
         {
         /*"30,-15",
@@ -1217,7 +1502,8 @@ namespace DCLExport
         {
             return string.Format("\"{0},{1}\"", parcel.x, parcel.y);
         }
-        
+
+        // GET DCL SCENE META OBJECT
         private void CheckAndGetDclSceneMetaObject()
         {
             var rootGameObjects = new List<GameObject>();
@@ -1263,19 +1549,25 @@ namespace DCLExport
             EditorUtility.SetDirty(sceneMeta);
             EditorSceneManager.MarkSceneDirty(o.scene);
         }
+
+        // SCENE LIMITATIONS GUI
         void StatisticsLineGUI(string indexName, long leftValue, long rightValue)
         {
             var oriColor = GUI.contentColor;
-            EditorGUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal();
             if (leftValue > rightValue)
             {
                 GUILayout.Label(DclEditorSkin.WarningIconSmall, GUILayout.Width(20));
                 GUI.contentColor = Color.yellow;
             }
-            EditorGUILayout.LabelField(indexName, string.Format("{0} / {1}", leftValue, rightValue));
-            EditorGUILayout.EndHorizontal();
+            GUILayout.Label(indexName);
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(string.Format("{0} / {1}", leftValue, rightValue));
+            GUILayout.EndHorizontal();
             GUI.contentColor = oriColor;
         }
+
+        // AUTOFIND DCL PROJECS
         public void AutoFindExport()
         {
             string projectFolder = Path.Combine(Application.dataPath, "../");
@@ -1305,6 +1597,8 @@ namespace DCLExport
                 }
             }
         }
+
+        // SET SKYBOX TIME
         private void SetSkyboxTime(int time, float intensity, bool softShadow)
         {
             Light light = FindFirstObjectByType<Light>();
@@ -1313,6 +1607,7 @@ namespace DCLExport
             light.intensity = intensity;
             light.shadows = softShadow ? LightShadows.Soft : LightShadows.None;
 
+            RenderSettings.skybox = Resources.Load<Material>("Skybox/Materials/SkyboxMat");
             RenderSettings.skybox.SetTexture("_Tex", Resources.Load<Cubemap>(string.Format("Skybox/{0}h", time.ToString("00"))));
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = skyColor;
@@ -1323,6 +1618,8 @@ namespace DCLExport
             RenderSettings.fogEndDistance = 800;
             RenderSettings.fogColor = fogColor;
         }
+
+        //WARNNG GUI FOR STATISTICS
         void WarningsGUI()
         {
             var foldout = EditorPrefs.GetBool("DclFoldStat", true);
@@ -1379,7 +1676,7 @@ namespace DCLExport
             GUI.contentColor = Color.yellow;
             if (GUILayout.Button(text, EditorStyles.label))
             {
-                if (hintMessage != null) ShowNotification(new GUIContent(hintMessage));
+                if (hintMessage != null) ShowNotification(new GUIContent(hintMessage), 0.1f);
                 EditorGUIUtility.PingObject(gameObject);
             }
 
@@ -1395,7 +1692,7 @@ namespace DCLExport
             GUI.contentColor = color;
             if (GUILayout.Button(text, EditorStyles.label))
             {
-                if (hintMessage != null) ShowNotification(new GUIContent(hintMessage));
+                if (hintMessage != null) ShowNotification(new GUIContent(hintMessage), 0.1f);
                 Selection.activeObject = AssetDatabase.LoadMainAssetAtPath(assetPath);
             }
 

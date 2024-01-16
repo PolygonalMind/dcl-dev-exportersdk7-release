@@ -44,7 +44,6 @@ namespace DCLExport
         public List<string> importedModulesECS = new List<string>(1);
         public List<string> importedModulesMATH = new List<string>(1);
         public List<string> importedModulesRA = new List<string>(1);
-        public bool blateLoadGTLF = false;
         public bool blateLoadInit = false;
         public string lateGTLFlines = "";
         public List<string> exportedModels = new List<string>();

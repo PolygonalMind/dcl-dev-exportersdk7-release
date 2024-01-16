@@ -46,8 +46,9 @@ namespace DCLExport
         [SerializeField] [HideInInspector] public bool useFetch;
         [SerializeField] [HideInInspector] public bool useWebSocket;
         [SerializeField] [HideInInspector] public bool openExternalLink;
-        [SerializeField][HideInInspector] public bool voiceChatEnabled;
-     // [SerializeField] public IconList[] iconLists;
+        [SerializeField][HideInInspector] public bool voiceChatEnabled = true;
+        [SerializeField][HideInInspector] public bool portableExpEnabled = true;
+        
         [SerializeField] public List<AditionalCode> customCode =  new List<AditionalCode>() { new AditionalCode()};
         [SerializeField] public List<string> SceneTags = new List<string>() { "Untagged" };
         [SerializeField] [HideInInspector] public int currentSpawnPoint = 0;
@@ -71,36 +72,7 @@ namespace DCLExport
             m_GroundMaterial.color = Color.gray;
         }
 
-        private void Start()
-        {
-            if (Application.isPlaying)
-            {
-                //Create FPS Controller
-                m_GroundMaterial = new Material(PrimitiveHelper.GetDefaultMaterial().shader);
-                m_GroundMaterial.color = Color.gray;
-                var ground = new GameObject("_Ground");
-                var cldr = ground.AddComponent<BoxCollider>();
-                cldr.size = new Vector3(1e6f, 0, 1e6f);
-                var prefab = Resources.Load<GameObject>("FirstPersonCharacter/Prefabs/FPSController");
-                if (prefab)
-                {
-                    var mainCamera = Camera.main;
-                    if (mainCamera)
-                    {
-                        mainCamera.gameObject.SetActive(false);
-                        Destroy(mainCamera.gameObject);
-                    }
-                    var go = Instantiate(prefab, new Vector3(0, 0.01f, 0), Quaternion.identity);
-                    go.transform.forward = new Vector3(1, 0, 1);
-                }
-                else
-                {
-                    Debug.LogWarning("Cannot find FPS Controller");
-                }
-            }
-        }
-
-        void Update()// OnDrawGizmos()
+        void Update()
         {
             if (parcels.Count > 0)
             {
@@ -120,9 +92,9 @@ namespace DCLExport
 
         void OnDrawGizmos()
         {
+            var oriColor = Gizmos.color;
             foreach (var outOfLandWarning in sceneWarningRecorder.OutOfLandWarnings)
             {
-                var oriColor = Gizmos.color;
                 Gizmos.color = Color.red;
                 if (outOfLandWarning.renderer)
                 {
@@ -132,7 +104,6 @@ namespace DCLExport
             }
             foreach (var AreaOutOfLandWarning in sceneWarningRecorder.AreaOutOfLandWarnings)
             {
-                var oriColor = Gizmos.color;
                 Gizmos.color = Color.red;
                 if (AreaOutOfLandWarning.renderer)
                 {
@@ -142,7 +113,6 @@ namespace DCLExport
             }
             foreach (var outOfLandWarning in sceneWarningRecorder.OutOfHeightLandWarnings)
             {
-                var oriColor = Gizmos.color;
                 Gizmos.color = Color.blue;
                 if (outOfLandWarning.renderer)
                 {
@@ -152,7 +122,6 @@ namespace DCLExport
             }
             foreach (var areaOutOfLandWarning in sceneWarningRecorder.AreaOutOfHeightLandWarnings)
             {
-                var oriColor = Gizmos.color;
                 Gizmos.color = Color.blue;
                 if (areaOutOfLandWarning.renderer)
                 {
@@ -202,24 +171,18 @@ namespace DCLExport
                 }
 
                 var globVolume = GetComponentInChildren<Volume>();
-                if (volumeProfile)
+                volumeProfile = Resources.Load<VolumeProfile>("Settings/DCL Volume Profile");
+                if (globVolume)
                 {
-                    if (globVolume)
-                    {
-                        globVolume.sharedProfile = volumeProfile;
-                    }
-                    else
-                    {
-                        var newVolume = new GameObject();
-                        newVolume.transform.SetParent(gameObject.transform);
-                        newVolume.name = "GlobalVolume";
-                        Volume vol = newVolume.AddComponent<Volume>();
-                        vol.sharedProfile = volumeProfile;
-                    }
+                    globVolume.sharedProfile = volumeProfile;
                 }
                 else
                 {
-                    Debug.LogError("Set the Volume profile in the gameObject: .dclManager");
+                    var newVolume = new GameObject();
+                    newVolume.transform.SetParent(gameObject.transform);
+                    newVolume.name = "GlobalVolume";
+                    Volume vol = newVolume.AddComponent<Volume>();
+                    vol.sharedProfile = volumeProfile;
                 }
             }
         }
@@ -227,7 +190,7 @@ namespace DCLExport
         {
             sceneStatistics = new SceneStatistics();
             sceneWarningRecorder = new SceneWarningRecorder();
-            SceneTraverserDcl.TraverseDclScene(null, null, sceneStatistics, sceneWarningRecorder, DclExporter.ExportFormat.GLTFExternalTextures); //exportGLTF bool needed to set gltf/glb depending on animation
+            SceneTraverserDcl.TraverseDclScene(null, null, sceneStatistics, sceneWarningRecorder, DclExporter.ExportFormat.GLTFBin); //exportGLTF bool needed to set gltf/glb depending on animation
         }
     }
 
@@ -290,5 +253,4 @@ namespace DCLExport
         public float maxHeight;
         public readonly List<Material> gltfMaterials = new List<Material>(); //to record the materials inside a GLTF model. clear this when traverse into a new GLTF object.
     }
-
 }

@@ -23,7 +23,9 @@ namespace DCLExport
         PlayAnimation,
         StopAnimations,
         PlayStopAudio,
-        StopAudio
+        StopAudio,
+        SetTransform,
+        AddTransform
     }
     public enum EventType
     {
@@ -45,7 +47,12 @@ namespace DCLExport
         //Tp inside scene
         public GameObject lookAt;
         public bool fixedPosition = false;
-        public Vector3 teleportPosition;
+        public bool Pos;
+        public bool Rot;
+        public bool Sca;
+        public Vector3 position;
+        public Vector3 rotation;
+        public Vector3 scale;
         public Vector3 teleportLookAt;
         //Tp out scene
         public Vector2 teleportSceneCoords;
@@ -147,7 +154,7 @@ namespace DCLExport
                 SerializedProperty link = MyListRef.FindPropertyRelative("link");
                 //Tp inside scene
                 SerializedProperty fixedPosition = MyListRef.FindPropertyRelative("fixedPosition");
-                SerializedProperty teleportPosition = MyListRef.FindPropertyRelative("teleportPosition");
+                SerializedProperty position = MyListRef.FindPropertyRelative("position");
                 SerializedProperty teleportLookAt = MyListRef.FindPropertyRelative("teleportLookAt");
                 //Tp out scene
                 SerializedProperty teleportSceneCoords = MyListRef.FindPropertyRelative("teleportSceneCoords");
@@ -165,6 +172,13 @@ namespace DCLExport
                 SerializedProperty loop = MyListRef.FindPropertyRelative("loop");
                 SerializedProperty volume = MyListRef.FindPropertyRelative("volume");
                 SerializedProperty pitch = MyListRef.FindPropertyRelative("pitch");
+
+                //SetTransform
+                SerializedProperty rotation = MyListRef.FindPropertyRelative("rotation");
+                SerializedProperty scale = MyListRef.FindPropertyRelative("scale");
+                SerializedProperty Pos = MyListRef.FindPropertyRelative("Pos");
+                SerializedProperty Rot = MyListRef.FindPropertyRelative("Rot");
+                SerializedProperty Sca = MyListRef.FindPropertyRelative("Sca");
 
                 GUILayout.BeginHorizontal("Button");
                 GUILayout.BeginVertical();
@@ -185,12 +199,12 @@ namespace DCLExport
                             fixedPosition.boolValue = EditorGUILayout.Toggle("Fixed Position", fixedPosition.boolValue);
                             if (fixedPosition.boolValue)
                             {
-                                teleportPosition.vector3Value = EditorGUILayout.Vector3Field("Position", teleportPosition.vector3Value);
+                                position.vector3Value = EditorGUILayout.Vector3Field("Position", position.vector3Value);
                                 teleportLookAt.vector3Value = EditorGUILayout.Vector3Field("Look at", teleportLookAt.vector3Value);
                             }else
                             {
                                 GUILayout.BeginHorizontal();
-                                refGO.objectReferenceValue = EditorGUILayout.ObjectField("GameObject Position", refGO.objectReferenceValue, typeof(GameObject), true);
+                                refGO.objectReferenceValue = EditorGUILayout.ObjectField("Target Position", refGO.objectReferenceValue, typeof(GameObject), true);
                                 if (GUILayout.Button("Self", EditorStyles.miniButtonRight, GUILayout.Width(30)))
                                 {
                                     refGO.objectReferenceValue = t.gameObject;
@@ -317,7 +331,80 @@ namespace DCLExport
                             }
                             GUILayout.EndHorizontal();
                             break;
+                        case 7: //Set Transform
+                            fixedPosition.boolValue = EditorGUILayout.Toggle("Fixed Values", fixedPosition.boolValue);
+                            EditorGUILayout.Space();
+                            
+                            GUILayout.BeginHorizontal();
+                            refGO.objectReferenceValue = EditorGUILayout.ObjectField("Target GameObject", refGO.objectReferenceValue, typeof(GameObject), true);
+                            if (GUILayout.Button("Self", EditorStyles.miniButtonRight, GUILayout.Width(30)))
+                            {
+                                refGO.objectReferenceValue = t.gameObject;
+                            }
+                            GUILayout.EndHorizontal();
+                            EditorGUILayout.Space();
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Position");
+                            Pos.boolValue = EditorGUILayout.Toggle(Pos.boolValue);
+                            GUILayout.Label("Rotation");
+                            Rot.boolValue = EditorGUILayout.Toggle(Rot.boolValue);
+                            GUILayout.Label("Scale");
+                            Sca.boolValue = EditorGUILayout.Toggle(Sca.boolValue);
+                            GUILayout.EndHorizontal();
+                            EditorGUILayout.Space();
 
+                            if (fixedPosition.boolValue)
+                            {
+                                if (Pos.boolValue)
+                                    position.vector3Value = EditorGUILayout.Vector3Field("Position", position.vector3Value);
+                                if (Rot.boolValue)
+                                    rotation.vector3Value = EditorGUILayout.Vector3Field("Rotation", rotation.vector3Value);
+                                if (Sca.boolValue)
+                                    scale.vector3Value = EditorGUILayout.Vector3Field("Scale", scale.vector3Value);
+                            }
+                            else
+                            {
+                                if (Pos.boolValue || Rot.boolValue || Sca.boolValue)
+                                    lookAt.objectReferenceValue = EditorGUILayout.ObjectField("Transform Reference", lookAt.objectReferenceValue, typeof(GameObject), true);
+                            }
+                            break;
+                        case 8: //Add Transform
+                            fixedPosition.boolValue = EditorGUILayout.Toggle("Fixed Values", fixedPosition.boolValue);
+                            EditorGUILayout.Space();
+                            
+                            GUILayout.BeginHorizontal();
+                            refGO.objectReferenceValue = EditorGUILayout.ObjectField("Target GameObject", refGO.objectReferenceValue, typeof(GameObject), true);
+                            if (GUILayout.Button("Self", EditorStyles.miniButtonRight, GUILayout.Width(30)))
+                            {
+                                refGO.objectReferenceValue = t.gameObject;
+                            }
+                            GUILayout.EndHorizontal();
+                            EditorGUILayout.Space();
+                            GUILayout.BeginHorizontal();
+                            GUILayout.Label("Position");
+                            Pos.boolValue = EditorGUILayout.Toggle(Pos.boolValue);
+                            GUILayout.Label("Rotation");
+                            Rot.boolValue = EditorGUILayout.Toggle(Rot.boolValue);
+                            GUILayout.Label("Scale");
+                            Sca.boolValue = EditorGUILayout.Toggle(Sca.boolValue);
+                            GUILayout.EndHorizontal();
+                            EditorGUILayout.Space();
+
+                            if (fixedPosition.boolValue)
+                            {
+                                if (Pos.boolValue)
+                                    position.vector3Value = EditorGUILayout.Vector3Field("Position", position.vector3Value);
+                                if (Rot.boolValue)
+                                    rotation.vector3Value = EditorGUILayout.Vector3Field("Rotation", rotation.vector3Value);
+                                if (Sca.boolValue)
+                                    scale.vector3Value = EditorGUILayout.Vector3Field("Scale", scale.vector3Value);
+                            }
+                            else
+                            {
+                                if (Pos.boolValue || Rot.boolValue || Sca.boolValue)
+                                    lookAt.objectReferenceValue = EditorGUILayout.ObjectField("Transform Reference", lookAt.objectReferenceValue, typeof(GameObject), true);
+                            }
+                            break;
                     }
                     EditorGUILayout.Space();
                 }

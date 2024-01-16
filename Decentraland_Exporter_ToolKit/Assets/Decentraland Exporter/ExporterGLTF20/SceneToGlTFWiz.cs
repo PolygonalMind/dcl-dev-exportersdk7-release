@@ -892,7 +892,34 @@ public class SceneToGlTFWiz : MonoBehaviour
 
             // Parse animations
             if (exportAnimation)
-			{
+            {
+				/*
+                Animator animator = tr.GetComponent<Animator>();
+                if (animator != null)
+                {
+					AnimationClip[] clips = AnimationUtility.GetAnimationClips(tr.gameObject);
+					for (int i = 0; i < clips.Length; i++)
+					{
+						// It seems not good to generate one animation per animator.
+						GlTF_Animation anim = new GlTF_Animation(GlTF_Writer.cleanNonAlphanumeric(animator.name));
+						anim.name = clips[i].name;
+						anim.Populate(clips[i], tr, GlTF_Writer.bakeAnimation);
+						if (anim.channels.Count > 0)
+							GlTF_Writer.animations.Add(anim);
+					}
+				}
+                Animation animation = tr.GetComponent<Animation>();
+                if (animation != null)
+                {
+                    AnimationClip clip = animation.clip;
+                    // It seems not good to generate one animation per animator.
+                    GlTF_Animation anim = new GlTF_Animation(GlTF_Writer.cleanNonAlphanumeric(animation.name));
+                    anim.Populate(clip, tr, GlTF_Writer.bakeAnimation);
+                    if (anim.channels.Count > 0)
+                        GlTF_Writer.animations.Add(anim);
+                }
+				*/
+					
                 AnimatorDcl a = tr.GetComponent<AnimatorDcl>();
                 if (a != null)
                 {
@@ -913,32 +940,6 @@ public class SceneToGlTFWiz : MonoBehaviour
                         if (anim.channels.Count > 0)
                             GlTF_Writer.animations.Add(anim);
                     }
-                }
-
-                Animator animator = tr.GetComponent<Animator>();
-                if (animator != null)
-                {
-                    AnimationClip[] clips = AnimationUtility.GetAnimationClips(tr.gameObject);
-                    for (int i = 0; i < clips.Length; i++)
-                    {
-                        // It seems not good to generate one animation per animator.
-                        GlTF_Animation anim = new GlTF_Animation(GlTF_Writer.cleanNonAlphanumeric(animator.name));
-						anim.name = clips[i].name;
-                        anim.Populate(clips[i], tr, GlTF_Writer.bakeAnimation);
-                        if (anim.channels.Count > 0)
-                            GlTF_Writer.animations.Add(anim);
-                    }
-                }
-				
-                Animation animation = tr.GetComponent<Animation>();
-                if (animation != null)
-                {
-                    AnimationClip clip = animation.clip;
-                    // It seems not good to generate one animation per animator.
-                    GlTF_Animation anim = new GlTF_Animation(GlTF_Writer.cleanNonAlphanumeric(animation.name));
-                    anim.Populate(clip, tr, GlTF_Writer.bakeAnimation);
-                    if (anim.channels.Count > 0)
-                        GlTF_Writer.animations.Add(anim);
                 }
             }
 
@@ -1410,7 +1411,7 @@ public class SceneToGlTFWiz : MonoBehaviour
 		{
 			if (isMetal)
 			{
-				if (hasPBRMap) // No metallic factor if texture
+				if (hasPBRMap)
 				{
 					var textureValue = new GlTF_Material.DictValue();
 					textureValue.name = "metallicRoughnessTexture";
@@ -1426,8 +1427,7 @@ public class SceneToGlTFWiz : MonoBehaviour
 				metallicFactor.name = "metallicFactor";
 				metallicFactor.value = hasPBRMap ? 1.0f : mat.GetFloat("_Metallic");
 				material.pbrValues.Add(metallicFactor);
-
-				//Roughness factor
+				
 				var roughnessFactor = new GlTF_Material.FloatValue();
 				roughnessFactor.name = "roughnessFactor";
 				roughnessFactor.value = hasPBRMap ? 1.0f : 1f - mat.GetFloat("_Smoothness"); // gloss scale is not supported for now(property _GlossMapScale)
@@ -1435,7 +1435,7 @@ public class SceneToGlTFWiz : MonoBehaviour
 			}
 			else
 			{
-				if (hasPBRMap) // No metallic factor if texture
+				if (hasPBRMap)
 				{
 					var textureValue = new GlTF_Material.DictValue();
 					textureValue.name = "specularGlossinessTexture";

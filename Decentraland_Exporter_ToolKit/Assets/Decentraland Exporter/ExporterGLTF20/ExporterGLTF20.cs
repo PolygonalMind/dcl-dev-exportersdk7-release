@@ -35,7 +35,7 @@ namespace DCLExport
 
         private enum ExportFormat
         {
-            GLTFExternalTextures,
+            GLTFBin,
             GLBExternalTextures,
             GLBCompressedTextures
         }
@@ -154,7 +154,7 @@ namespace DCLExport
 
                     switch (mFormat)
                     {
-                        case ExportFormat.GLTFExternalTextures:
+                        case ExportFormat.GLTFBin:
                             break;
                         case ExportFormat.GLBExternalTextures:
                             RunCommand.gltfGLBexternal(mExportPath, mParamName);

@@ -8,6 +8,7 @@ using Unity.EditorCoroutines.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.Networking;
+using System.Linq;
 
 namespace DCLExport
 {
@@ -94,6 +95,8 @@ namespace DCLExport
     
     public class ParcelManager : EditorWindow
     {
+        internal static Color oriColor;
+        private int SPACE = 10;
         private static Vector2 scrollPosition;
 
         //TEST
@@ -107,7 +110,6 @@ namespace DCLExport
         public static List<string> stringList = new List<string>();
 
         //BASE
-        private static GameObject go;
         private static GUIStyle style = new GUIStyle();
         private static GUIStyle style2 = new GUIStyle();
         private static SerializedObject so;
@@ -126,17 +128,19 @@ namespace DCLExport
 
         // Add menu named "My Window" to the Window menu
         [MenuItem("Dcl Exporter ToolKit/Parcel Manager")]
-        static void Init()
+        public static void Init()
         {
             // Get existing open window or if none, make a new one:
             ParcelManager window = (ParcelManager)EditorWindow.GetWindow(typeof(ParcelManager));
             window.titleContent = new GUIContent("ParcelManager");
-            window.minSize = new Vector2(325, 400);
-            window.maxSize = new Vector2(325, 800);
+            window.minSize = new Vector2(550, 500);
+            window.maxSize = new Vector2(550, 500);
             window.Show();
 
             // window.index = 0;
-
+            if (!sceneMeta)
+                sceneMeta = FindFirstObjectByType<DclSceneMeta>();
+            
             startingParcel = ParcelToStringBuilder(sceneMeta.parcels[0]).ToString();
         }
         
@@ -153,6 +157,8 @@ namespace DCLExport
 
             so = new SerializedObject(FindObjectOfType<DclSceneMeta>());
 
+            oriColor = GUI.backgroundColor;
+            style.normal.textColor = GUI.contentColor;
             style2.normal.textColor = Color.white;
             style2.alignment = TextAnchor.MiddleLeft;
 
@@ -195,30 +201,35 @@ namespace DCLExport
 
             EditorGUI.BeginChangeCheck();
 
-            parcelsDataGUI();
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Parcel Arrangement", GUILayout.Width(110));
+            GUILayout.Label(new GUIContent("[ ? ]", "Scene Layout is key to determine the scene limitations given by the ECS. The first coordinate introduced will be considered the base and origin of the scene (0,0,0)"), style);
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(SPACE);
 
-            GUILayout.Space(10);
-
-            fixedSizeParcelsGUI();
-
-            GUILayout.Space(10);
-
-            GUILayout.BeginVertical();
+            parcelGUI();
+            
+            GUILayout.Space(SPACE);
             
             buttonGrid();
+            GUILayout.Space(5);
+            fixedSizeParcelsGUI();
             
-            GUILayout.EndVertical();
-            
-            GUILayout.Space(10);
-
-            createButtonGUI();
-            
-            parcelGUI();
-
-            GUILayout.Space(10);
+            GUILayout.Space(SPACE);
 
             dclMarketGUI();
+            
+            GUILayout.Label("", GUI.skin.horizontalSlider); //Horizontal line
+            GUILayout.Space(SPACE * 2);
 
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            
+            createButtonGUI();
+
+            GUILayout.EndHorizontal();
+            
             if (EditorGUI.EndChangeCheck())
             {
                 EditorUtility.SetDirty(sceneMeta);
@@ -358,7 +369,12 @@ namespace DCLExport
         }
         public void buttonGrid()
         {
-            GUILayout.Label("Create a custom parcel in the grid: ");
+            GUILayout.Label("Generate layout from a grid:", EditorStyles.boldLabel);
+            GUILayout.Space(SPACE);
+
+            GUILayout.BeginHorizontal();
+            parcelsDataGUI();
+            GUILayout.BeginVertical();
             
             stringList.Add("");
             int index = 1;
@@ -397,6 +413,9 @@ namespace DCLExport
                 //Debug.Log("Creating buttons line number: " + i);
                 GUILayout.EndHorizontal();
             }
+            GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
         }
 
         void createParcel(string startingParcel)
@@ -470,19 +489,23 @@ namespace DCLExport
         public void createButtonGUI()
         {
             GUI.backgroundColor = new Color(0.6f, 1f, 0.6f);
-            var reload = GUILayout.Button("Create Parcel", GUILayout.Height(25));
-            if (reload)
+            if (GUILayout.Button("Clear", GUILayout.Height(25), GUILayout.Width(60)))
+            {
+                startingParcel = "0,0";
+                stringList.Clear();
+                gridCount = 3;
+                estateUrl = "";
+            }
+            if (GUILayout.Button("Set", GUILayout.Height(25), GUILayout.Width(60)))
             {
                 createParcel(startingParcel);
             }
             GUI.backgroundColor = Color.white;
-            
-            GUILayout.Space(10);
         }
 
         public void fixedSizeParcelsGUI()
         {
-            GUILayout.Label("Create fixed size parcel: ");
+            GUILayout.Label("Create fixed size parcel from Starting Parcel:", EditorStyles.boldLabel);
 
             GUILayout.BeginHorizontal();
 
@@ -559,26 +582,35 @@ namespace DCLExport
         
         public void parcelsDataGUI()
         {
-            GUILayout.Label("Parcels", EditorStyles.boldLabel);
-
-            GUILayout.Space(5);
+            GUILayout.BeginVertical();
             GUILayout.BeginHorizontal();
-            startingParcel = EditorGUILayout.TextField("Starting Parcel", startingParcel, GUILayout.Width(260));
+            GUILayout.Label("Starting Parcel");
+            startingParcel = EditorGUILayout.TextField(startingParcel, GUILayout.Width(160));
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+            
             GUILayout.Space(5);
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("Grid Size: ");
             GUILayout.Label("1"); 
-            float width = GUILayout.HorizontalSlider(gridCount, 1, 10, GUILayout.Width(150));
+            float width = GUILayout.HorizontalSlider(gridCount, 1, SPACE, GUILayout.Width(150));
             if (width != gridCount)
             {
                 stringList.Clear();
                 gridCount = width;
             }
-            GUILayout.Space(10);
+            GUILayout.Space(SPACE);
             GUILayout.Label("10");
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+            if (GUILayout.Button("Get from Grid", GUILayout.Width(250)))
+            {
+                createParcel(startingParcel);
+                stringList.Clear();
+                gridCount = 3;
+            }
+            GUILayout.EndVertical();
         }
         public List<ParcelCoordinates> create2x2(string text, List<ParcelCoordinates> coordinates)
         {
@@ -785,16 +817,20 @@ namespace DCLExport
         private void dclMarketGUI()
         {
             GUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Get from Dcl market estate url:");
-            if (GUILayout.Button("Dcl Market "))
+            GUILayout.Label("Import the scene layout from a", EditorStyles.boldLabel);
+            GUILayout.Space(5);
+            if (GUILayout.Button("<color=#3FD8FC>Decentraland Marketplace Link</color>", style))
             {
-                Application.OpenURL("https://decentraland.org/marketplace/lands?assetType=nft&section=estates");
+                Application.OpenURL("https://decentraland.org/marketplace/lands?assetType=nft&section=estates&isMap=true&isFullscreen");
             }
+            GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
+            
+            GUILayout.Space(5);
 
             GUILayout.BeginHorizontal();
             estateUrl = EditorGUILayout.TextField("", estateUrl);
-            if (GUILayout.Button("Get Parcels"))
+            if (GUILayout.Button("Get", GUILayout.Width(50)))
             {
                 EditorCoroutineUtility.StartCoroutine(getRequest(), this);
             }
@@ -805,8 +841,11 @@ namespace DCLExport
             EditorGUILayout.BeginVertical("box");
             var parcels = sceneMeta.parcels;
             EditorGUILayout.BeginHorizontal();
-            
-            GUILayout.Label(string.Format("Parcels ({0})", parcels.Count));
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label(string.Format("Parcels ({0})", parcels.Count), GUILayout.Width(80));
+            GUILayout.Label(new GUIContent("[ ? ]", "Introduce parcels manually, one per line of text"), style);
+            GUILayout.EndHorizontal();
             if (editParcelsMode)
             {
                 if (GUILayout.Button("Save"))

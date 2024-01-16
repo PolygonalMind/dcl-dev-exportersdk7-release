@@ -36,8 +36,7 @@ namespace DCLExport
             {
                 try
                 {
-                    RecursivelyTravTransDecentraland(rootGO.transform, exportStr, additionalStr, _resourceRecorder, 4, statistics,
-                        warningRecorder, mFormat);
+                    RecursivelyTravTransDecentraland(rootGO.transform, exportStr, additionalStr, _resourceRecorder, 4, statistics, warningRecorder, mFormat);
                 }
                 catch (Exception e)
                 {
@@ -47,10 +46,7 @@ namespace DCLExport
             }
 
             if (statistics != null)
-            {
-                statistics.textureCount = _resourceRecorder.primitiveTexturesToExport.Count +
-                                          _resourceRecorder.gltfTextures.Count;
-            }
+                statistics.textureCount = _resourceRecorder.primitiveTexturesToExport.Count + _resourceRecorder.gltfTextures.Count;
 
             return _resourceRecorder;
         }
@@ -58,8 +54,10 @@ namespace DCLExport
             ResourceRecorder resourceRecorder, int indentLevel, SceneStatistics statistics,
             SceneWarningRecorder warningRecorder, ExportFormat mFormat)
         {
-            if (!tra.gameObject.activeInHierarchy) return;
-            if (tra.gameObject.GetComponent<DclSceneMeta>()) return; //skip .dclManager
+            if (!tra.gameObject.activeInHierarchy) //Skip inactive gameObjects
+                return;
+            if (tra.gameObject.GetComponent<DclSceneMeta>()) //Skip .dclManager
+                return;
 
             var dclObject = tra.GetComponent<DclObject>() ?? tra.gameObject.AddComponent<DclObject>();
 
@@ -68,7 +66,7 @@ namespace DCLExport
             dclObject.dclNodeType = EDclNodeType.entity;
 
 
-            if (dclObject.ignoreObject == true) { tra.gameObject.GetComponent<DclObject>().dclNodeType = EDclNodeType.ignore; return; } //skip ignored objects
+            if (dclObject.ignoreObject == true) { dclObject.dclNodeType = EDclNodeType.ignore; return; } //skip ignored objects
 
             if (dclObject.dclName != SceneTraverserUtils.BuildIdentityName(dclObject.gameObject))
             {
@@ -130,9 +128,8 @@ namespace DCLExport
                     rotation = Quaternion.AngleAxis(180, tra.up) * rotation;
                 }
 
-                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Transform");
-                
                 //Set Transform
+                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Transform");
                 if (tra.parent)
                 {
                     exportStr.AppendFormat(SetTransformParent, entityName, SceneTraverserUtils.Vector3ToJSONString(tra.localPosition), SceneTraverserUtils.QuaternionToJSONString(rotation), SceneTraverserUtils.Vector3ToJSONString(tra.localScale), SceneTraverserUtils.GetIdentityName(tra.parent.gameObject));
@@ -141,7 +138,17 @@ namespace DCLExport
                 {
                     exportStr.AppendFormat(SetTransform, entityName, SceneTraverserUtils.Vector3ToJSONString(tra.localPosition), SceneTraverserUtils.QuaternionToJSONString(rotation), SceneTraverserUtils.Vector3ToJSONString(tra.localScale));
                 }
+                //Create Collider
+                var collider = tra.gameObject.GetComponent<BoxCollider>();
+                if (collider)
+                {
+                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "MeshCollider");
+                    exportStr.AppendFormat(AddEntityCollider, entityName);
+                    exportStr.AppendFormat(SetCollider, "Box", entityName + "_Collider");
+                    exportStr.AppendFormat(SetTransformCollider, entityName, SceneTraverserUtils.Vector3ToJSONString(new Vector3(-collider.center.x, collider.center.y, -collider.center.z)), SceneTraverserUtils.Vector3ToJSONString(collider.size), entityName);
+                }
             }
+            if (dclObject.glbPlaceholder) return;
             
             if (dclObject.dclNodeType != EDclNodeType.gltf && dclObject.dclNodeType != EDclNodeType.gltf_forced && dclObject.dclNodeType != EDclNodeType.gltf_break)
             {
@@ -205,8 +212,8 @@ namespace DCLExport
                     if (_sceneMeta && warningRecorder != null)
                     {
                         var isOutOfLand = false;
-                        var startParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.min : smr.bounds.min);
-                        var endParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.max : smr.bounds.max);
+                        var startParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.min + new Vector3(0.0001f, 0.0001f, 0.0001f) : smr.bounds.min + new Vector3(0.0001f, 0.0001f, 0.0001f));
+                        var endParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.max - new Vector3(0.0001f, 0.0001f, 0.0001f) : smr.bounds.max - new Vector3(0.0001f, 0.0001f, 0.0001f));
                         for (int x = startParcel.x; x <= endParcel.x; x++)
                         {
                             for (int y = startParcel.y; y <= endParcel.y; y++)
@@ -222,10 +229,9 @@ namespace DCLExport
 
                             if (isOutOfLand) break;
                         }
-                        var n = _sceneMeta.parcels.Count;
 
                         var curHeight = meshRenderer ? meshRenderer.bounds.max.y : smr.bounds.max.y;
-                        if (curHeight > LimitationConfigs.GetMaxHeight(n))
+                        if (curHeight > LimitationConfigs.GetMaxHeight(_sceneMeta.parcels.Count))
                         {
                             warningRecorder.OutOfHeightLandWarnings.Add(new SceneWarningRecorder.OutOfLand(meshRenderer ? meshRenderer : smr));
                         }
@@ -309,12 +315,13 @@ namespace DCLExport
                     statistics.materialCount += statistics.gltfMaterials.Count;
                 }
             }
-
-            if (exportStr == null) return; //exportStr is null because the traverse is a refresh, not a export
-
+            
             //Export Animations
             ProcessAnimation(tra, entityName, exportStr, resourceRecorder);
-            
+
+            if (exportStr == null) //exportStr is null because the traverse is a refresh, not a export
+                return;
+
             //Export Audio
             ProcessAudio(tra, entityName, exportStr, resourceRecorder);
 
@@ -326,6 +333,7 @@ namespace DCLExport
 
             //Export Input Event
             ProcessEvent(tra, entityName, exportStr, resourceRecorder);
+
         }
         public static ResourceRecorder TraverseDclSceneDependences()
         {
@@ -362,17 +370,31 @@ namespace DCLExport
             SceneStatistics statistics, SceneWarningRecorder warningRecorder, StringBuilder exportStr, StringBuilder additionalStr,
             ResourceRecorder resourceRecorder, ExportFormat mFormat)
         {
-            if (!tra.gameObject.activeInHierarchy) return;
+            if (!tra.gameObject.activeInHierarchy) // Skip disabled gameObject
+                return;
             
-            if (tra.gameObject.GetComponent<DclSceneMeta>()) return; //skip .dclManager
+            if (tra.gameObject.GetComponent<DclSceneMeta>()) // Skip .dclManager
+                return;
             
             var dclObject = tra.GetComponent<DclObject>() ?? tra.gameObject.AddComponent<DclObject>();
             
-            if (dclObject.ignoreObject) { dclObject.dclNodeType = EDclNodeType.ignore; return; } //skip ignore
+            if (dclObject.ignoreObject)  //Skip ignored DclObject
+            {
+                dclObject.dclNodeType = EDclNodeType.ignore;
+                return;
+            }
             
-            if (layerUnderGLTFRoot > 0 && dclObject.dclNodeType != EDclNodeType.gltf_break) dclObject.dclNodeType = EDclNodeType.ChildOfGLTF;
+            if(layerUnderGLTFRoot > 0 && dclObject.dclNodeType == EDclNodeType.text)
+            {
+                if (exportStr != null) Debug.LogError("The gameObject '" + tra.name + "' is a TextShape and child of a gltf.\nThis is not supported and It wasn't exported.\nRefresh the scene to fix automatically");
+                else { dclObject.transform.parent = null; return; }
+            }
+
+            if (layerUnderGLTFRoot > 0 && dclObject.dclNodeType != EDclNodeType.gltf_break && dclObject.dclNodeType != EDclNodeType.text)
+                dclObject.dclNodeType = EDclNodeType.ChildOfGLTF;
             
-            if(dclObject.dclNodeType == EDclNodeType.gltf_break && !dclObject.gameObject.GetComponent<Break_Child>()) dclObject.dclNodeType = EDclNodeType.ChildOfGLTF;
+            if(dclObject.dclNodeType == EDclNodeType.gltf_break && !dclObject.gameObject.GetComponent<Break_Child>())
+                dclObject.dclNodeType = EDclNodeType.ChildOfGLTF;
             
             if (tra.GetComponent<MeshRenderer>() || tra.GetComponent<SkinnedMeshRenderer>())
             {
@@ -382,13 +404,9 @@ namespace DCLExport
                 Mesh mesh = null;
                 
                 if (meshFilter)
-                {
                     mesh = meshFilter.sharedMesh;
-                }
                 else if (!meshRenderer && smr)
-                {
                     mesh = smr.sharedMesh;
-                }
 
                 //Statistics
                 if (statistics != null)
@@ -400,15 +418,16 @@ namespace DCLExport
                     }
                     
                     var curHeight = meshRenderer ? meshRenderer.bounds.max.y : smr.bounds.max.y;
-                    if (curHeight > statistics.maxHeight) statistics.maxHeight = curHeight;
+                    if (curHeight > statistics.maxHeight)
+                        statistics.maxHeight = curHeight;
                 }
 
                 //Warning OutOfLand
                 if (_sceneMeta && warningRecorder != null)
                 {
                     var isOutOfLand = false;
-                    var startParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.min : smr.bounds.min);
-                    var endParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.max : smr.bounds.max);
+                    var startParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.min + new Vector3(0.0001f,0.0001f,0.0001f) : smr.bounds.min + new Vector3(0.0001f, 0.0001f, 0.0001f));
+                    var endParcel = SceneUtil.GetParcelCoordinates(meshRenderer ? meshRenderer.bounds.max - new Vector3(0.0001f, 0.0001f, 0.0001f) : smr.bounds.max - new Vector3(0.0001f, 0.0001f, 0.0001f));
                     for (int x = startParcel.x; x <= endParcel.x; x++)
                     {
                         for (int y = startParcel.y; y <= endParcel.y; y++)
@@ -424,10 +443,9 @@ namespace DCLExport
                         }
                         if (isOutOfLand) break;
                     }
-                        
-                    var n = _sceneMeta.parcels.Count;
+                    
                     var curHeight = meshRenderer ? meshRenderer.bounds.max.y : smr.bounds.max.y;
-                    if (curHeight > LimitationConfigs.GetMaxHeight(n))
+                    if (curHeight > LimitationConfigs.GetMaxHeight(_sceneMeta.parcels.Count))
                     {
                         warningRecorder.OutOfHeightLandWarnings.Add(new SceneWarningRecorder.OutOfLand(meshRenderer ? meshRenderer : smr));
                     }
@@ -495,9 +513,12 @@ namespace DCLExport
             if (tra.gameObject.GetComponent<DclObject>())
                 tra.gameObject.GetComponent<DclObject>().dclNodeType = EDclNodeType.text;
 
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "TextShape");
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Font");
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "TextAlignMode");
+            
             if (exportStr != null && tra.GetComponent<TextMesh>())
             {
-                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "TextShape, Font, TextAlignMode");
                 //Create Text Shape
                 exportStr.AppendFormat(NewTextShape, entityName);
 
@@ -634,9 +655,7 @@ namespace DCLExport
 
                 //Set Padding
                 if(tm.margin != Vector4.zero)
-                {
-                    exportStr.AppendFormat(TextShapePadding, tm.margin.x, tm.margin.y, tm.margin.z, tm.margin.w);
-                }
+                    exportStr.AppendFormat(TextShapePadding, SceneTraverserUtils.FloatToString(tm.margin.x), SceneTraverserUtils.FloatToString(tm.margin.y), SceneTraverserUtils.FloatToString(tm.margin.z), SceneTraverserUtils.FloatToString(tm.margin.w));
 
                 //Close TextShape
                 exportStr.AppendFormat(EndTextShape);
@@ -652,19 +671,23 @@ namespace DCLExport
         public static void ProcessShape(Transform tra, string entityName, StringBuilder exportStr,
             ResourceRecorder resourceRecorder, SceneStatistics statistics, ExportFormat mFormat)
         {
-            glbPlaceholder glbPlaceholder = tra.gameObject.GetComponent<glbPlaceholder>();
-            if (glbPlaceholder && exportStr != null)
+            var dclObject = tra.GetComponent<DclObject>();
+            if (dclObject.glbPlaceholder)
             {
-                exportStr.AppendFormat(NewGLTFshape, entityName, glbPlaceholder.path);
+                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "GltfContainer");
+                
+                if (exportStr == null)
+                    return;
+                
+                exportStr.AppendFormat(NewGLTFshape, entityName, dclObject.placeholderPath);
                 exportStr.Append(EndGLTFshape);
                 return;
             }
-
-
+            
             string formato = "gltf";
             switch (mFormat)
             {
-                case ExportFormat.GLTFExternalTextures:
+                case ExportFormat.GLTFBin:
                     formato = "gltf";
                     break;
                 case ExportFormat.GLBExternalTextures:
@@ -678,15 +701,13 @@ namespace DCLExport
             
             if (!(meshFilter && (tra.GetComponent<MeshRenderer>() || tra.GetComponent<SkinnedMeshRenderer>())))
                 return;
-            
 
             if (tra.GetComponent<TextMeshPro>())
                 return;
             
-            var dclObject = tra.GetComponent<DclObject>();
             string shapeName = null;
             
-            if (dclObject)
+            if (dclObject && !tra.GetComponent<Force_GLTF>())
             {
                 switch (dclObject.dclPrimitiveType)
                 {
@@ -694,25 +715,25 @@ namespace DCLExport
                         dclObject.dclNodeType = EDclNodeType.box;
                         shapeName = "Box";
                         statistics.primitiveCount += 1;
-                    break;
+                        break;
                     case DclPrimitiveType.sphere:
                         dclObject.dclNodeType = EDclNodeType.sphere;
                         shapeName = "Sphere";
                         statistics.primitiveCount += 1;
-                    break;
+                        break;
                     case DclPrimitiveType.plane:
                         dclObject.dclNodeType = EDclNodeType.plane;
                         shapeName = "Plane";
                         statistics.primitiveCount += 1;
-                    break;
+                        break;
                     case DclPrimitiveType.cylinder:
                         dclObject.dclNodeType = EDclNodeType.cylinder;
                         shapeName = "Cylinder";
                         statistics.primitiveCount += 1;
-                    break;
+                        break;
                     default:
                         shapeName = null;
-                    break;
+                        break;
                 }
                 if (meshFilter.sharedMesh.name != "DCL " + shapeName)
                 {
@@ -724,8 +745,11 @@ namespace DCLExport
 
             if (shapeName != null)
             {
-                if (exportStr == null) return;
-                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "MeshRenderer, MeshCollider");
+                if (exportStr == null)
+                    return;
+                
+                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "MeshRenderer");
+                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "MeshCollider");
                 
                 //Primitive
                 exportStr.AppendFormat(SetShape, shapeName, entityName);
@@ -739,7 +763,9 @@ namespace DCLExport
                 if (dclObject.dclNodeType != EDclNodeType.gltf_forced && dclObject.dclNodeType != EDclNodeType.gltf_break && dclObject.dclNodeType != EDclNodeType.ChildOfGLTF)
                     dclObject.dclNodeType = EDclNodeType.gltf;
 
-                if (exportStr == null) return;
+                if (exportStr == null)
+                    return;
+                
                 SceneTraverserUtils.ImportModuleECS(resourceRecorder, "GltfContainer");
 
                 bool bIsOvewritePrefab = true;
@@ -748,78 +774,48 @@ namespace DCLExport
                 if (PrefabUtility.GetPrefabInstanceHandle(tra.gameObject) != null && tra.gameObject.GetComponent<MeshFilter>() != null && tra.gameObject.GetComponent<MeshFilter>().sharedMesh)
                 {
                     bIsOvewritePrefab = false;
-                    if (tra.gameObject.GetComponent<ovewriteMesh_script>() != null && tra.gameObject.GetComponent<ovewriteMesh_script>().exportToSingleGTLF)
+                    if (dclObject.exportToSingleGTLF)
                     {
                         bIsOvewritePrefab = true;
                     }
-                    if (PrefabUtility.GetAddedGameObjects(tra.gameObject).ToArray().Length > 0 && tra.gameObject.GetComponent<ovewriteMesh_script>() == null)
+                    if (PrefabUtility.GetAddedGameObjects(tra.gameObject).ToArray().Length > 0 && dclObject.exportToSingleGTLF == false)
                     {
                         foreach (var gameObject in PrefabUtility.GetAddedGameObjects(tra.gameObject))
                         {
                             if (gameObject.instanceGameObject.GetComponent<MeshFilter>() != null)
-                            {
                                 bIsOvewritePrefab = true;
-                            }
                         }
                     }
-
                 }
 
                 if (bIsOvewritePrefab)
                 {
-                        string gltfPath = string.Format("unity_assets/{0}." + formato, SceneTraverserUtils.GetIdentityName(tra.gameObject)); //gltf
-                        if (resourceRecorder.blateLoadGTLF && (tra.gameObject.GetComponent<lateLoadMesh_script>() != null && tra.gameObject.GetComponent<lateLoadMesh_script>().bLateLoadMesh))
-                        {
-                            resourceRecorder.lateGTLFlines += string.Format(NewGLTFshape, entityName, gltfPath);
+                    string gltfPath = string.Format("unity_assets/{0}." + formato, SceneTraverserUtils.GetIdentityName(tra.gameObject)); //gltf
 
-                            //Put here collision options if needed
-
-                            resourceRecorder.lateGTLFlines += EndGLTFshape;
-                        }
-                        else
-                        {
-                            exportStr.AppendFormat(NewGLTFshape, entityName, gltfPath);
-
-                            //Put here collision options if needed
-
-                            exportStr.Append(EndGLTFshape);
-                        }
+                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "GltfContainer");
+                    
+                    exportStr.AppendFormat(NewGLTFshape, entityName, gltfPath);
+                    exportStr.Append(EndGLTFshape);
 
                     //export as a glTF model
                     if (resourceRecorder != null)
-                    {
                         resourceRecorder.meshesToExport.Add(tra.gameObject);
-                    }
                 }
                 else
                 {
                     string name = tra.gameObject.GetComponent<MeshFilter>().sharedMesh.name;
-                    if (tra.gameObject.GetComponent<ovewriteMesh_script>() && tra.gameObject.GetComponent<ovewriteMesh_script>().export_custom_GTLF_name != null && tra.gameObject.GetComponent<ovewriteMesh_script>().export_custom_GTLF_name != "")
-                    {
-                        name = tra.gameObject.GetComponent<ovewriteMesh_script>().export_custom_GTLF_name;
-                    }
                     int index = resourceRecorder.exportedModels.IndexOf(name);
                     if (exportStr != null)
                     {
                         string fileModenName = SceneTraverserUtils.GetIdentityName(tra.gameObject);
                         if (index > -1)
-                        {
                             fileModenName = resourceRecorder.exportedModelsFileName[index];
-                        }
+                        
+                        SceneTraverserUtils.ImportModuleECS(resourceRecorder, "GltfContainer");
+
                         string gltfPath = string.Format("unity_assets/{0}." + formato, fileModenName); //gltf
-                        if (resourceRecorder.blateLoadGTLF && (tra.gameObject.GetComponent<lateLoadMesh_script>() != null && tra.gameObject.GetComponent<lateLoadMesh_script>().bLateLoadMesh))
-                        {
-                            resourceRecorder.lateGTLFlines += string.Format(NewGLTFshape, entityName, gltfPath); //GLTF
-
-                            //Put here collision options if needed
-
-                            resourceRecorder.lateGTLFlines += EndGLTFshape;
-                        }
-                        else
-                        {
-                            exportStr.AppendFormat(NewGLTFshape, entityName, gltfPath);
-                            exportStr.Append(EndGLTFshape);
-                        }
+                        exportStr.AppendFormat(NewGLTFshape, entityName, gltfPath);
+                        exportStr.Append(EndGLTFshape);
                     }
 
                     //export as a glTF model
@@ -835,7 +831,8 @@ namespace DCLExport
             var billboard = tra.gameObject.GetComponent<BillboardDcl>();
             if (billboard && exportStr != null)
             {
-                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Billboard, BillboardMode");
+                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Billboard");
+                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "BillboardMode");
                 
                 string billboardMode = "";
                 switch (billboard.billboardMode)
@@ -865,36 +862,67 @@ namespace DCLExport
             var animationComp = tra.gameObject.GetComponent<Animation>();
             var animatorComp = tra.gameObject.GetComponent<Animator>();
             var dclAnimator = tra.gameObject.GetComponent<AnimatorDcl>();
-
-            if (animationComp)
+            
+            if(animationComp && animatorComp)
             {
-                Debug.LogError("Animations can't be handled\nAnimation Component not supported\nAdd an AnimatorDcl or an Animator Component to the gameObject \"" + tra.gameObject.name + "\" to handle animation clips in Decentraland and correctly export glTFs");
+                Debug.LogError("You are trying to export a GameObject: " + tra.gameObject.name + " with more than one Animation handler\nChoose between AnimatorDcl, Animator or Animation Component to handle animation clips in Decentraland and correctly export glTFs");
                 return;
             }
 
-            if (animatorComp && dclAnimator)
+            if (animationComp != null || animatorComp != null)
             {
-                Debug.LogError("You are trying to export a GameObject: " + tra.gameObject.name + " with more than one Animator\nChoose between Animator or DclAnimator Component to handle animation clips in Decentraland and correctly export glTFs");
-                return;
-            }
+                AnimationClip[] clips = AnimationUtility.GetAnimationClips(tra.gameObject);
+                List<bool> tempBools = new List<bool>();
 
-            //Animator component
-            if (animatorComp)
-            {
-                SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Animator");
-                //Create Dcl Animator
-                exportStr.AppendFormat(NewAnimator, entityName);
-                //Add default clip
-                exportStr.AppendFormat(AddClip, animatorComp.runtimeAnimatorController.animationClips[0].name, "true", animatorComp.runtimeAnimatorController.animationClips[0].isLooping.ToString().ToLower(), 1f);
-
-                //Create clips
-                for (var i = 1; i < animatorComp.runtimeAnimatorController.animationClips.Length; i++)
+                if(dclAnimator != null && dclAnimator.animations != null)
                 {
-                    exportStr.AppendFormat(AddClip, animatorComp.runtimeAnimatorController.animationClips[i].name, "false", animatorComp.runtimeAnimatorController.animationClips[i].isLooping.ToString().ToLower(), 1f);
+                    tempBools.Add(dclAnimator.defaultAnimation.loop);
+
+                    foreach (var anim in dclAnimator.animations)
+                    {
+                        if (anim.loop)
+                            tempBools.Add(true);
+                        else
+                            tempBools.Add(false);
+                    }
                 }
-                //Close Dcl Animator component
-                exportStr.Append(EndAnimator);
+                else
+                {
+                    for (int i = 0; i <  clips.Length; i++)
+                    {
+                        if (clips[i].isLooping || clips[i].wrapMode == WrapMode.Loop)
+                            tempBools.Add(true);
+                        else
+                            tempBools.Add(false);
+                    }
+                    if(dclAnimator == null)
+                        dclAnimator = tra.gameObject.AddComponent<AnimatorDcl>();
+                }
+                
+                dclAnimator.defaultAnimation = new DclAnimation();
+                dclAnimator.animations = new DclAnimation[clips.Length - 1];
+                dclAnimator.defaultAnimation.clip = new AnimationClip();
+                EditorUtility.CopySerialized(clips[0], dclAnimator.defaultAnimation.clip);
+                
+                if(tempBools.Count > 0)
+                {
+                    dclAnimator.defaultAnimation.loop = tempBools[0];
+
+                    for (int i = 1; i < clips.Length; i++)
+                    {
+                        dclAnimator.animations[i - 1] = new DclAnimation();
+                        dclAnimator.animations[i - 1].clip = new AnimationClip();
+                        
+                        EditorUtility.CopySerialized(clips[i], dclAnimator.animations[i - 1].clip);
+
+                        dclAnimator.animations[i - 1].loop = tempBools[i];
+                    }
+                }
             }
+            
+            if (exportStr == null)
+                return;
+            
             // DclAnimation component
             if (dclAnimator)
             {
@@ -922,9 +950,10 @@ namespace DCLExport
                 string audioClipRelPath = string.Format("\"{0}\"", SceneTraverserUtils.GetAudioClipRelativePath(audioSource.defaultClip));
                 //Add default Clip to the export list
                 resourceRecorder.audioClipsToExport.Add(audioSource.defaultClip);
-                //Add clip list to the export list if its not the default
+                
                 foreach (AudioClip clip in audioSource.clipsToExport)
                 {
+                    //Add clip list to the export list if its not the default
                     if (clip != audioSource.defaultClip)
                         resourceRecorder.audioClipsToExport.Add(clip);
                 }
@@ -934,16 +963,19 @@ namespace DCLExport
         }
         public static void ProcessVideo(StreamingVideoDcl streamVideo, string entityName, StringBuilder exportStr, ResourceRecorder resourceRecorder)
         {
-            if (exportStr == null) return;
+            if (exportStr == null)
+                return;
 
             SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Material");
             SceneTraverserUtils.ImportModuleECS(resourceRecorder, "VideoPlayer");
-            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "pointerEventsSystem, InputAction");
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "pointerEventsSystem");
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "InputAction");
 
             exportStr.AppendFormat(NewVideoPlayer, entityName, streamVideo.videoURL, streamVideo.startPlaying.ToString().ToLower());
             exportStr.AppendFormat(NewMaterial, entityName);
             exportStr.AppendFormat(NewVideoTexture, entityName);
             exportStr.Append(EndMaterial);
+            
             string func = string.Format(StreamVideoPointer, entityName);
             exportStr.AppendFormat(NewDclPointerDown, entityName, streamVideo.clickDistance , "IA_POINTER", "Play/Pause", func);
         }
@@ -959,15 +991,13 @@ namespace DCLExport
         }
         public static void ProcessMaterial(Transform tra, bool isOnOrUnderGLTF, string entityName, StringBuilder exportStr, ResourceRecorder resourceRecorder, SceneStatistics statistics)
         {
-
             var rdrr = tra.GetComponent<MeshRenderer>();
             var smr = tra.GetComponent<SkinnedMeshRenderer>();
             if ((rdrr && tra.GetComponent<MeshFilter>()) || (smr && smr.sharedMesh))
             {
-                if (tra.GetComponent<TextMeshPro>())
-                {
+                if (tra.GetComponent<TextMeshPro>()) 
                     return;
-                }
+                
                 List<Material> materialList;
                 if (isOnOrUnderGLTF)
                 {
@@ -989,14 +1019,11 @@ namespace DCLExport
                             SceneTraverserUtils.ImportModuleECS(resourceRecorder, "Material");
                             SceneTraverserUtils.ImportModuleECS(resourceRecorder, "MaterialTransparencyMode");
 
-
                             //New Material
                             exportStr.AppendFormat(NewMaterial, entityName);
-
+                            
                             if (exportStr != null && albedoTex)
-                            {
                                 exportStr.AppendFormat(SetMaterialTexture, SceneTraverserUtils.GetTextureRelativePath(albedoTex));
-                            }
 
                             SceneTraverserUtils.ImportModuleMath(resourceRecorder, "Color4");
                             
@@ -1017,7 +1044,7 @@ namespace DCLExport
                                 }
                                 else
                                 {
-                                    exportStr.AppendFormat(SetMaterialAlphaTrans);
+                                    exportStr.AppendFormat(SetMaterialAlphaAuto);
                                 }
                             }
                             else
@@ -1029,9 +1056,7 @@ namespace DCLExport
                         
                         var bumpTexture = material.HasProperty("_BumpMap") ? material.GetTexture("_BumpMap") : null;
                         if (exportStr != null && bumpTexture)
-                        {
                             exportStr.AppendFormat(SetMaterialBumptexture, SceneTraverserUtils.GetTextureRelativePath(bumpTexture));
-                        }
                             
                         Texture emissiveTexture = null;
                         if (material.IsKeywordEnabled("_EMISSION") && exportStr != null)
@@ -1045,38 +1070,26 @@ namespace DCLExport
 
                             emissiveTexture = material.HasProperty("_EmissionMap") ? material.GetTexture("_EmissionMap") : null;
                             if (emissiveTexture)
-                            {
                                 exportStr.AppendFormat(SetMaterialEmissiveTexture, SceneTraverserUtils.GetTextureRelativePath(emissiveTexture));
-                            }
                         }
 
                         //End material lines
                         if (exportStr != null)
                             exportStr.Append(EndMaterial);
-
                         
-
                         var textureList = isOnOrUnderGLTF ? resourceRecorder.gltfTextures : resourceRecorder.primitiveTexturesToExport;
+                        
                         if (albedoTex && !textureList.Contains(albedoTex))
-                        {
                             textureList.Add(albedoTex);
-                        }
 
                         if (bumpTexture && !textureList.Contains(bumpTexture))
-                        {
                             textureList.Add(bumpTexture);
-                        }
 
                         if (emissiveTexture && !textureList.Contains(emissiveTexture))
-                        {
                             textureList.Add(emissiveTexture);
-                        }
 
                         if (!isOnOrUnderGLTF && statistics != null)
-                        {
                             statistics.materialCount += 1;
-                        }
-                        
                     }
                 }
             }
@@ -1084,7 +1097,8 @@ namespace DCLExport
         public static void ProcessTrigger(Transform tra, string entityName, StringBuilder exportStr, ResourceRecorder resourceRecorder)
         {
             TriggerDcl trigger = tra.GetComponent<TriggerDcl>();
-            if (!trigger) return;
+            if (!trigger)
+                return;
             
             if (!exportStr.ToString().Contains("import * as utils from \"@dcl-sdk/utils\""))
                 exportStr.Prepend("import * as utils from \"@dcl-sdk/utils\"\n");
@@ -1095,7 +1109,6 @@ namespace DCLExport
             
             if (trigger.actionListEnter.Count > 0)
             {
-                    
                 foreach (var dclAction in trigger.actionListEnter)
                 {
                     string refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
@@ -1106,10 +1119,10 @@ namespace DCLExport
                             SceneTraverserUtils.ImportModuleRA(resourceRecorder, "movePlayerTo");
 
                             if (dclAction.fixedPosition)
-                                action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportPosition), SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportLookAt));
+                                action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.position), SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportLookAt));
                             else
                                 action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.refGO.transform.position), SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.position));
-
+                            
                             break;
                         case TriggerActionType.PlayAnimation:
                             refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
@@ -1133,7 +1146,6 @@ namespace DCLExport
                             if (dclAction.modifyClipParams)
                             {
                                 action.AppendFormat(GetClipAnim, refName, anims[dclAction.clipIndex]);
-                                //action.AppendFormat(GetClipAnim, refName, dclAction.animClip.name);
                                 action.Append("\t\t");
                                 action.AppendFormat(SetAnimLoop, refName, dclAction.loop.ToString().ToLower());
                                 action.Append("\t\t");
@@ -1141,7 +1153,6 @@ namespace DCLExport
                                 action.Append("\t\t");
                             }
                             action.AppendFormat(PlayAnimation, refName, anims[dclAction.clipIndex], dclAction.reset.ToString().ToLower());
-                            //action.AppendFormat(PlayAnimation, refName, dclAction.animClip.name, dclAction.reset.ToString().ToLower());
                             break;
                         case TriggerActionType.StopAnimations:
                             action.AppendFormat(StopAnimations, refName);
@@ -1164,12 +1175,93 @@ namespace DCLExport
                             action.Append("\t\t");
                             action.AppendFormat(StopAudio, refName);
                             break;
+                        case TriggerActionType.SetTransform:
+                            refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
+                            action.AppendFormat(GetMutableTransform, refName);
+                            if (dclAction.fixedPosition)
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetPosition, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.position));
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetRotation, refName, SceneTraverserUtils.QuaternionToJSONString(Quaternion.Euler(dclAction.rotation)));
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetScale, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.scale));
+                                }
+                            }
+                            else
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetPosition, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.position));
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetRotation, refName, SceneTraverserUtils.QuaternionToJSONString(dclAction.lookAt.transform.rotation));
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetScale, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.lossyScale));
+                                }
+                            }
+                            action.Remove(action.Length - 1, 1);
+                            break;
+                        case TriggerActionType.AddTransform:
+                            refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
+                            action.AppendFormat(GetMutableTransform, refName);
+                            if (dclAction.fixedPosition)
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddPosition, refName, SceneTraverserUtils.FloatToString(dclAction.position.x), SceneTraverserUtils.FloatToString(dclAction.position.y), SceneTraverserUtils.FloatToString(dclAction.position.z), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddRotation, refName, SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).x), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).y), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).z), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).w), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddScale, refName, SceneTraverserUtils.FloatToString(dclAction.scale.x), SceneTraverserUtils.FloatToString(dclAction.scale.y), SceneTraverserUtils.FloatToString(dclAction.scale.z), "\t\t\t", "\t\t");
+                                }
+                            }
+                            else
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddPosition, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.z), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddRotation, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.z), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.w), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddScale, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.z), "\t\t\t", "\t\t");
+                                }
+                            }
+                            action.Remove(action.Length - 1, 1);
+                            break;
                     }
                     actionEnter.AppendFormat("{0}\n\t\t", action.ToString());
                 }
                 //Remove last line break and indents from action string
                 actionEnter = actionEnter.Remove(actionEnter.Length - 3, 3);
-
             }
             if (trigger.actionListExit.Count > 0)
             {
@@ -1183,7 +1275,7 @@ namespace DCLExport
                             SceneTraverserUtils.ImportModuleRA(resourceRecorder, "movePlayerTo");
 
                             if (dclAction.fixedPosition)
-                                action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportPosition), SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportLookAt));
+                                action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.position), SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportLookAt));
                             else
                                 action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.refGO.transform.position), SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.position));
                             break;
@@ -1240,6 +1332,88 @@ namespace DCLExport
                             action.Append("\t\t");
                             action.AppendFormat(StopAudio, refName);
                             break;
+                        case TriggerActionType.SetTransform:
+                            refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
+                            action.AppendFormat(GetMutableTransform, refName);
+                            if (dclAction.fixedPosition)
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetPosition, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.position));
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetRotation, refName, SceneTraverserUtils.QuaternionToJSONString(Quaternion.Euler(dclAction.rotation)));
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetScale, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.scale));
+                                }
+                            }
+                            else
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetPosition, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.position));
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetRotation, refName, SceneTraverserUtils.QuaternionToJSONString(dclAction.lookAt.transform.rotation));
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(SetScale, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.lossyScale));
+                                }
+                            }
+                            action.Remove(action.Length - 1, 1);
+                            break;
+                        case TriggerActionType.AddTransform:
+                            refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
+                            action.AppendFormat(GetMutableTransform, refName);
+                            if (dclAction.fixedPosition)
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddPosition, refName, SceneTraverserUtils.FloatToString(dclAction.position.x), SceneTraverserUtils.FloatToString(dclAction.position.y), SceneTraverserUtils.FloatToString(dclAction.position.z), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddRotation, refName, SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).x), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).y), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).z), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).w), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddScale, refName, SceneTraverserUtils.FloatToString(dclAction.scale.x), SceneTraverserUtils.FloatToString(dclAction.scale.y), SceneTraverserUtils.FloatToString(dclAction.scale.z), "\t\t\t", "\t\t");
+                                }
+                            }
+                            else
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddPosition, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.z), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddRotation, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.z), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.w), "\t\t\t", "\t\t");
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t");
+                                    action.AppendFormat(AddScale, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.z), "\t\t\t", "\t\t");
+                                }
+                            }
+                            action.Remove(action.Length - 1, 1);
+                            break;
                     }
                     actionExit.AppendFormat("{0}\n\t\t", action);
                 }
@@ -1251,13 +1425,15 @@ namespace DCLExport
         public static void ProcessAreas(Transform tra, string entityName, StringBuilder exportStr, ResourceRecorder resourceRecorder)
         {
             ModifierAreaDcl modArea = tra.gameObject.GetComponent<ModifierAreaDcl>();
-            if (!modArea) return;
+            if (!modArea)
+                return;
             
             string modType = "";
             switch (modArea.modType)
             {
                 case ModifierAreaDcl.modifierType.avatarMod:
-                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "AvatarModifierArea, AvatarModifierType");
+                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "AvatarModifierArea");
+                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "AvatarModifierType");
                     
                     switch (modArea.avatarModType)
                     {
@@ -1271,7 +1447,8 @@ namespace DCLExport
                     exportStr.AppendFormat(NewModifierArea, entityName, SceneTraverserUtils.Vector3ToJSONString(tra.lossyScale), modType);
                 break;
                 case ModifierAreaDcl.modifierType.cameraMod:
-                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "CameraModeArea, CameraType");
+                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "CameraModeArea");
+                    SceneTraverserUtils.ImportModuleECS(resourceRecorder, "CameraType");
                     
                     switch (modArea.forceCam)
                     {
@@ -1293,7 +1470,8 @@ namespace DCLExport
             bool pointerUp = false;
             if (InputEventsDcl.Length <= 0) return;
 
-            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "pointerEventsSystem, InputAction");
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "pointerEventsSystem");
+            SceneTraverserUtils.ImportModuleECS(resourceRecorder, "InputAction");
             
             foreach (var InputEventDcl in InputEventsDcl) 
             {
@@ -1305,7 +1483,7 @@ namespace DCLExport
 
                 foreach (var dclAction in InputEventDcl.actionList)
                 {
-                        string refName = "";
+                    string refName = "";
                     
                     switch (dclAction.actionButton)
                     {
@@ -1344,10 +1522,9 @@ namespace DCLExport
                             SceneTraverserUtils.ImportModuleRA(resourceRecorder, "movePlayerTo");
 
                             if (dclAction.fixedPosition)
-                                action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportPosition), SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportLookAt));
+                                action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.position), SceneTraverserUtils.Vector3ToJSONString(dclAction.teleportLookAt));
                             else
                                 action.AppendFormat(TpIn, SceneTraverserUtils.Vector3ToJSONString(dclAction.refGO.transform.position), SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.position));
-
                             break;
                         case ActionType.TeleportToOtherScene:
                             SceneTraverserUtils.ImportModuleRA(resourceRecorder, "teleportTo");
@@ -1411,9 +1588,89 @@ namespace DCLExport
                             action.Append("\t\t\t");
                             action.AppendFormat(StopAudio, refName);
                             break;
+                        case ActionType.SetTransform:
+                            refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
+                            action.AppendFormat(GetMutableTransform, refName);
+                            if (dclAction.fixedPosition)
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(SetPosition, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.position));
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(SetRotation, refName, SceneTraverserUtils.QuaternionToJSONString(Quaternion.Euler(dclAction.rotation)));
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(SetScale, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.scale));
+                                }
+                            }
+                            else
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(SetPosition, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.position));
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(SetRotation, refName, SceneTraverserUtils.QuaternionToJSONString(dclAction.lookAt.transform.rotation));
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(SetScale, refName, SceneTraverserUtils.Vector3ToJSONString(dclAction.lookAt.transform.lossyScale));
+                                }
+                            }
+                            action.Remove(action.Length - 1, 1);
+                            break;
+                        case ActionType.AddTransform:
+                            refName = SceneTraverserUtils.GetIdentityName(dclAction.refGO);
+                            action.AppendFormat(GetMutableTransform, refName);
+                            if (dclAction.fixedPosition)
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(AddPosition, refName, SceneTraverserUtils.FloatToString(dclAction.position.x), SceneTraverserUtils.FloatToString(dclAction.position.y), SceneTraverserUtils.FloatToString(dclAction.position.z), "\t\t\t\t", "\t\t\t");
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(AddRotation, refName, SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).x), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).y), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).z), SceneTraverserUtils.FloatToString(Quaternion.Euler(dclAction.rotation).w), "\t\t\t\t", "\t\t\t");
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(AddScale, refName, SceneTraverserUtils.FloatToString(dclAction.scale.x), SceneTraverserUtils.FloatToString(dclAction.scale.y), SceneTraverserUtils.FloatToString(dclAction.scale.z), "\t\t\t\t", "\t\t\t");
+                                }
+                            }
+                            else
+                            {
+                                if (dclAction.Pos)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(AddPosition, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.position.x), dclAction.lookAt.transform.position.y, dclAction.lookAt.transform.position.z, "\t\t\t\t", "\t\t\t");
+                                }
+                                if (dclAction.Rot)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(AddRotation, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.z), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.rotation.w), "\t\t\t\t", "\t\t\t");
+                                }
+                                if (dclAction.Sca)
+                                {
+                                    action.Append("\t\t\t");
+                                    action.AppendFormat(AddScale, refName, SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.x), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.y), SceneTraverserUtils.FloatToString(dclAction.lookAt.transform.lossyScale.z), "\t\t\t\t", "\t\t\t");
+                                }
+                            }
+                            action.Remove(action.Length - 1, 1);
+                            break;
                     }
-
-
                     functionString.AppendFormat(AddPointerButton, actionButton, action);
                 }
                 functionString.Remove(functionString.Length - 1, 1);
@@ -1444,8 +1701,10 @@ namespace DCLExport
 
         //  Entity and Transform
         private const string AddEntity = "\n\n// Entity: {0} //\nconst {0} = engine.addEntity()\n";
+        private const string AddEntityCollider = "// BoxCollider: {0} //\nconst {0}_Collider = engine.addEntity()\n";
         private const string SetTransform = "Transform.create({0}, {{\n\tposition: {1},\n\trotation: {2},\n\tscale: {3}\n}})\n";
         private const string SetTransformParent = "Transform.create({0}, {{\n\tposition: {1},\n\trotation: {2},\n\tscale: {3},\n\tparent: {4}\n}})\n";
+        private const string SetTransformCollider = "Transform.create({0}_Collider, {{\n\tposition: {1},\n\tscale: {2},\n\tparent: {3}\n}})\n";
         private const string SetShape = "MeshRenderer.set{0}({1})\n"; 
         private const string SetCollider = "MeshCollider.set{0}({1})\n";
 
@@ -1465,6 +1724,7 @@ namespace DCLExport
         private const string SetMaterialAlpha = "\talphaTest: {0},\n";
         private const string SetMaterialAlphaBlend = "\ttransparencyMode: MaterialTransparencyMode.MTM_ALPHA_BLEND,\n";
         private const string SetMaterialAlphaTrans = "\ttransparencyMode: MaterialTransparencyMode.MTM_ALPHA_TEST_AND_ALPHA_BLEND,\n";
+        private const string SetMaterialAlphaAuto = "\ttransparencyMode: MaterialTransparencyMode.MTM_AUTO,\n";
         private const string SetMaterialBumptexture = "\tbumpTexture: Material.Texture.Common({{\nsrc:\"{0}\",\n}}),\n";
         private const string SetMaterialEmissiveColor = "\temissiveColor: {0},\n";
         private const string SetMaterialEmissiveIntensity = "\temissiveIntensity: {0},\n";
@@ -1528,6 +1788,15 @@ namespace DCLExport
         //Areas
         private const string NewModifierArea = "AvatarModifierArea.create({0}, {{\n\tarea: {1},\n\tmodifiers: [AvatarModifierType.AMT_{2}],\n\texcludeIds:[]\n}})\n";
         private const string NewCameraMod = "CameraModeArea.create({0}, {{\n\tarea: {1},\n\tmode: CameraType.CT_{2},\n}})\n";
+
+        //SetTransform
+        private const string GetMutableTransform = "var transform_{0} = Transform.getMutable({0})\n";
+        private const string SetPosition = "transform_{0}.position = {1}\n";
+        private const string SetRotation = "transform_{0}.rotation = {1}\n";
+        private const string SetScale = "transform_{0}.scale = {1}\n";
+        private const string AddPosition = "transform_{0}.position = {{\n{4}x: transform_{0}.position.x + {1},\n{4}y: transform_{0}.position.y + {2},\n{4}z: transform_{0}.position.z + {3}\n{5}}}\n";
+        private const string AddRotation = "transform_{0}.rotation = {{\n{5}x: transform_{0}.rotation.x + {1},\n{5}y: transform_{0}.rotation.y + {2},\n{5}z: transform_{0}.rotation.z + {3},\n{5}w: transform_{0}.rotation.w + {4}\n{6}}}\n";
+        private const string AddScale = "transform_{0}.scale = {{\n{4}x: transform_{0}.scale.x + {1},\n{4}y: transform_{0}.scale.y + {2},\n{4}z: transform_{0}.scale.z + {3}\n{5}}}\n";
 
         #endregion
     }

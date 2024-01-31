@@ -1,23 +1,23 @@
-**Premise**
 
 <aside>
+
+**Premise**
+
 🎓 This guide will take you through the Decentraland Exporter Toolkit, in order to learn how each part of the toolkit works and have a clear vision about what can we do from the Unity editor.
 
 </aside>
 
+<aside>
 
 **The mission**
 
-<aside>
 🎓 Create an user guide to explain the usage of the **Decentraland Exporter Toolkit for every new user that wants to create scenes in Dcl from Unity.
 
 </aside>
 
-
-⚙️ **Resources**
-
 <aside>
 
+⚙️ **Resources**
 
 - Unity 2022.3.12f1 - [https://unity3d.com/es/get-unity/download/archive](https://unity.com/releases/editor/archive)
 - Unity Hub [https://unity.com/download](https://unity.com/download)

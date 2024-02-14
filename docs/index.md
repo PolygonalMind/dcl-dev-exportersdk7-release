@@ -1,293 +1,352 @@
-# Unity Exporter for Decentraland Documentation
+# Exporter Documentation
+
+Status: ✔Completed
+Team: Artworks
+Milestone: Core Items
+Assign: Hugo Serichol
+Last Edited: Hugo Serichol
+Completed Date: January 30, 2024
+Created time: January 8, 2024 8:29 AM
 
 **Premise**
 
-🎓 Create an user guide to **explain** the usage of the **Decentraland Exporter Toolkit** for every new user that wants to create scenes in Dcl from Unity.
+<aside>
+🎓 This guide will take you through the **Decentraland Exporter Toolkit**, in order to learn how each part of the toolkit works and have a clear vision about what can we do from the Unity editor.
 
-
+</aside>
 
 **The mission**
 
+<aside>
+🎓 Create an user guide to **explain** the usage of the **Decentraland Exporter Toolkit** for every new user that wants to create scenes in Dcl from Unity.
 
-🎓 This guide will take you through the **Decentraland Exporter Toolkit**, in order to learn how each part of the toolkit works and have a clear vision about what can we do from the Unity editor.
+</aside>
 
-
-
-
+<aside>
 ⚙️ **Resources**
 
-- Unity 3D - [https://unity3d.com/es/get-unity/download/archive](https://unity3d.com/es/get-unity/download/archive)
+- Unity 2022.3.12f1 - [https://unity3d.com/es/get-unity/download/archive](https://unity.com/releases/editor/archive)
+- Unity Hub [https://unity.com/download](https://unity.com/download)
+</aside>
 
+<aside>
+📋 Decentraland Exporter Toolkit
 
-
-📋 Decentraland Exporter ToolKit
-
-
+</aside>
 
 ---
 
 ## 🏗️ Getting Started
 
+### Installing the Unity Editor
+
+<aside>
+💻 **Unity Editor**
+
+First of all we need to install the Unity Editor. We highly recommend installing the [Unity Hub](https://unity.com/download) as well to simplify the process. After installing **Unity Hub,** let’s head to the [Unity Archive](https://unity3d.com/es/get-unity/download/archive) and look for the **Unity 2022.3.12** version click on “Unity Hub” button to install the Editor.
+
+![Unity version download button](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/1-Unity-Version.png)
+
+Unity version download button
+
+</aside>
+
 ### Unity URP
 
-
+<aside>
 ☀️ **Universal Render Pipeline**
 
-First of all we need to install URP in a new Unity project (**2023.3.12f1** recomendeed).
+Now it’s time to install URP in a new Unity project. This will be necessary for our Exporter Toolkit to work properly.
 
- We can do this via package manager (This will be a dependencie in our Unity package in the future)
+In Unity Hub, click on **New Project,** this will open a window with different templates, select the **3D Core** option and click on **Create Project.**
 
-![URP in package manager](./images/DclExporterToolkit_URP.png)
+![New Project templates](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/2-New-Project.jpg)
 
-URP in package manager
+New Project templates
 
-Once URP is installed, go to the ToolKit package Installation
+To install URP via package manager go to *Window → Package Manager*
 
+![Package Manager route](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/3-Package_Manager.jpg)
 
+Package Manager route
 
-### Package **Installation**
+Change the Packages in top left to *Unity Registry* and look for the **Universal RP** package to install it.
 
+![URP Package installation](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/4-URP-Package.jpg)
 
+URP Package installation
+
+</aside>
+
+### Exporter Toolkit **Installation**
+
+<aside>
 📦 **Unity Package**
 
-We will need to download and **install the unity package** with the Exporter toolkit (Recommended Unity Editor Version **2022.3.12f1**)
+You will need to download and **install the Unity Package** with the Exporter Toolkit. You can find the latest version in [this Github repository](https://github.com/PolygonalMind/dcl-dev-exportersdk7-release). Double click the package to import it to your Unity project.
 
-![ToolKit Package Content](./images/DclExporterToolkit_PackageContent.png)
+![Importing Unity Package](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/5-Import-Unity-Package.jpg)
 
-ToolKit Package Content
+Importing Unity Package
 
+</aside>
 
+<aside>
+☀️ **URP Configuration**
 
+Go to the Project Settings, you can find it in *Edit → Project Settings* top left of your screen. Now, in the *Graphics* tab, set-up the **URP Asset** that comes in the Exporter ToolKit package. Open the *Scriptable Render Pipeline Settings* tab by clicking on the circle icon on the right and select the URP Asset.
 
-☀️ **URP Config**
-
-Go to the player setting and set up the URP Asset that comes in the Exporter ToolKit package.
-
-![Dcl Exporter ToolKit URP Configuration](./images/DclExporterToolkit_URPConfig.png)
+![Dcl Exporter ToolKit URP Configuration](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/6-URP-Settings.jpg)
 
 Dcl Exporter ToolKit URP Configuration
 
-This menu contains 3 editor windows with different function, We will only use the first one to create the Decentraland exports but we also have the possibility to export Gltfs from the scene or manage the Decentraland scene parcels config. 
+</aside>
 
-
-
-
+<aside>
 🛠️ **Dcl Exporter ToolKit**
 
-Once the package is installed, a new menu should appear in the Unity Editor toolbar.
+Now that everything is set-up, let’s open the Exporter. You can find it in the *Dcl Exporter ToolKit* tab, top of your screen. Open the *Control Panel* option to get started.
 
-![Dcl Exporter ToolKit toolbar](./images/DclExporterToolKit_ToolBar.png)
+![Control Panel tab](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/7-Exporter-Tool.jpg)
 
-Dcl Exporter ToolKit toolbar
+Control Panel tab
 
-This menu contains 3 editor windows with different function, We will only use the first one to create the Decentraland exports but we also have the possibility to export Gltfs from the scene or manage the Decentraland scene parcels config. 
-
-
+</aside>
 
 ### **Dependencies**
 
-
+<aside>
 🔗 **Dependencies**
 
-This is the main Editor Window used to export Decentraland Scenes.
+The first time opening the exporter, this window will show all the dependencies needed to use the exporter.
 
-The first time opening this Window will show all the dependencies needed to use the exporter.
-
-![Dependencies editor window](./images/DclExporterToolkit_DependenciesGUI.png)
+![Dependencies editor window](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/8-Dependecies-Window.jpg)
 
 Dependencies editor window
 
-In this editor window you can manage the dependencies in your computer with a simple 4 steps guide to Initialize your project. You cant go further in the tool without installing the dependencies and click the “**Check Dependencies**” button.
-This will execute a cmd command to check if NodeJs and the npm packages are installed in your computer.
+In this editor window, you can manage the dependencies with a simple 4-step guide to initialize your project. You can't proceed further in the tool without installing the dependencies and clicking the "**Check Dependencies**" button. This will execute a cmd command to check if Node.js and the npm packages are installed on your computer.
 
-Once the dependencies are installed, this window will change after Checking the dependencies and will show a new interfaz.
+</aside>
 
+### **DCL project creation**
 
-
-### **Dcl project creation**
-
-
+<aside>
 📁 **Dcl Project Creation**
 
-Now you need to select a valid Decentraland project folder or an empty folder to create the base Dcl project
+Below the Dependencies you can find a **Create New Project** button, this will set-up our Dcl project route and files. Click it and select an empty folder inside your Unity project.
 
-![DclExporterToolkit_ProjectPath.png](./images/DclExporterToolkit_ProjectPath.png)
+![Creating Dcl Project](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/9-Create-DCL-Project.jpg)
 
-If you select an empty folder, a few options will appear to initialice a new Dcl project
+Creating Dcl Project
 
-![Editor window for empty folder selected](./images/DclExporterToolkit_InitialiceDecentraland.png)
+Now go to the *Exporter* tab of the Control Panel, in this interface you will be able to Export and Run your Dcl projects. For now, to make sure everything is working properly, click on the *Run Local* option down below. This will open a tab in your browser to run a local test of your Dcl Project.
 
-Editor window for empty folder selected
+![Exporter Tab](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/10-Exporter-Tab.jpg)
 
-Click on “**Init Dcl Project**” to create the base Dcl project in the selected folder. This will run a cmd command, the cmd promp may ask you to install the last sdk before continue with the installation, just write Y for yes if you agree to continue.
+Exporter Tab
 
-![Dcl project creation prompt](./images/DclInstall_Prompt.png)
+If everything is correct, you will spawn in an empty Dcl scene that looks like this:
 
-Dcl project creation prompt
+![Local Test](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/11-DCL-local-test.jpg)
 
-Wait untill the Dcl project is created to move on to the next step.
-Once the project is initialiced the editor window should look like this
+Local Test
 
-![Exporter UI Ready to export Dcl scenes](./images/DclExporterToolkit_Main.png)
+</aside>
 
-Exporter UI Ready to export Dcl scenes
+### Exporter ToolKit Interface
 
-Now you are ready to export Unity Scenes to Decentraland.
+Now that we have succesfully created our first Dcl project from scratch, let’s go back to the Exporter’s interface and have a more in depth look into each tab so we can start developing our Dcl scene.
 
+![Exporter Tabs](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/12-Exporter-Tabs.jpg)
 
+Exporter Tabs
 
-### Exporter Editor Window
+<aside>
+🖥️ **Config**
 
-Once the Dcl project is ready and we can see the full exporter windows with all the dependencies installed we can export any unity scene to Dcl, to do this we need to know the exporter capabilities so it’s time to explain this editor window part by part.
-
-
+<aside>
 🔗 **Dependencies**
 
-![Dependencies UI](./images/DclExporterToolkit_Deps.png)
+Back in the Config tab, below the Dependencies’ installers we previously used, we can find the Dependencies Version Control.
+
+This is a small box that displays all the installed dependencies versions and contains 2 buttons to check if there are new dependencies versions installed or clear the dependencies information if you want to go back to the previous window to manage dependencies.
+
+![Dependencies UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/13-Dependencies-Info.jpg)
 
 Dependencies UI
 
-This is a little box that shows all the dependencie versions installed and contains 2 buttons to check if there are new dependencie versions installed or clear the dependencies info if you want to see the previous window to manage dependencies.
+</aside>
 
+<aside>
+📁 **Project Setup**
 
+Here we can create a new Dcl project from scratch in an empty folder (as we have previously done), locate an already existing project manually, or use the Autofind feature, which will show all available projects to choose one from.
 
+![Project Setup UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/14-Project-Setup.jpg)
 
-📁 **Project path**
+Project Setup UI
 
-![Project path UI](./images/DclExporterToolkit_Path.png)
+</aside>
 
-Project path UI
+</aside>
 
-In this part we can manage the Dcl path and we also have the ability to delete all the contents inside the selected folder in case that we want to initialice a new base Dcl project in the same location.
+<aside>
+🖥️ **Manager**
 
+<aside>
+📄 **Scene Metadata**
 
+![Decentraland Metadata UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/15-Scene-Metadata.jpg)
 
+Decentraland Metadata UI
 
-🔗 **CLI**
+Here you can set up all the Dcl metadata needed including Land Name, Description, Spawn Points, etc.
 
-![Decentraland CLI UI](./images/DclExporterToolkit_CLI.png)
+The *Open Parcel Editor* button at the top open a new window where you can configure the parcels for your Dcl Scene.
 
-Decentraland CLI UI
+![Parcel Manager](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/16-Parcel-Manager.jpg)
 
-In this section we can Initialice a new Dcl project, Update the Decentraland CLI in our computer or Update the SDK in the selected project.
+Parcel Manager
 
+In this window, you can:
 
+- Create regular parcels with a fixed size.
+- Create a custom parcel drawing in a grid starting from the base parcel at the bottom left corner.
+- Edit the parcel list manually.
+    
+    This parcel creation form must maintain the following structure:
+    
+    "[X],[Y]
+    
+    [X],[Y]
+    
+    [X],[Y]"
+    
+    The first parcel will be the base, located at the bottom left corner of the scene.
+    
+- Obtain the Dcl parcels from the marketplace, using the link or just the token ID of a decentraland estate.
+</aside>
 
+<aside>
+🛡️ **Special Permissions**
 
-📁 **Decentraland Project**
+Depending on your gameplay configurations you may need to enable certain special permissions:
 
-![Decentraland Project folder UI](./images/DclExporterToolkit_ManageProject.png)
+- **Enable voice chat:** allows users to use voice chat in the scene
+- **Enable Portable Experiences:** enables the use of smart wearables
 
-Decentraland Project folder UI
+![17-Special-Permissions.jpg](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/17-Special-Permissions.jpg)
 
-In this section we can manage the Dcl project folder, we can **open** the **root folder**, open specific scripts like **scene.json** with the metadata, **index.ts** where the main code is exported or the **package.json** script.
+</aside>
 
-We can also run a dcl scene locally to test our exports executing a cmd command fom Unity.
+</aside>
 
+<aside>
+🏗️ **Builder**
 
+<aside>
+📊 **Statistics**
 
+In the next part we have one of the main features of the exporter, it shows info about the current scene like the number of triangles, objects, entities, materials, etc. It shows the recomended limit of each resource based on your parcel size to have an optimized scene and avoid exceeding the limits of Decentraland.
 
+To update this info we need to Refresh the scene by clicking the button or selecting a time interval to auto refresh the scene. Refreshing the scene for the first time will create a GameObject called .dclManager that will be ignored during the Export, It contains info and the scene metadata to be exported.
+
+![Stats UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/18-Stats.jpg)
+
+Stats UI
+
+In this part we can also set the bounding boxes from every mesh with a dcl object and debug bounding box active. This will be useful to make sure every bounding box is within our parcel’s boundaries.
+
+![Bounding Boxes](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/19-Bounding-Boxes.jpg)
+
+Bounding Boxes
+
+</aside>
+
+<aside>
 ☀️ **Decentraland Skybox & Illumination**
 
-![Decentraland Skybox & Illumination UI](./images/DclExporterToolkit_Skybox.png)
+![Decentraland Skybox & Illumination UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/20-Illumination.jpg)
 
 Decentraland Skybox & Illumination UI
 
 In this section we can manage the Dcl Skybox to preview the illumination and reflection probe at different daytimes, This is a helpfull tool to save time checking the illumination in unity before exporting to Decentraland.
 
-![00h Skybox Illumination](./images/Skybox_00h.png)
+![00h Skybox Illumination](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/21-Skybox-00h.jpg)
 
 00h Skybox Illumination
 
-![04h Skybox Illumination](./images/Skybox_04h.png)
+![04h Skybox Illumination](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/22-Skybox-04h.jpg)
 
 04h Skybox Illumination
 
-![08h Skybox Illumination](./images/Skybox_08h.png)
+![08h Skybox Illumination](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/23-Skybox-08h.jpg)
 
 08h Skybox Illumination
 
-![12h Skybox Illumination](./images/Skybox_12h.png)
+![12h Skybox Illumination](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/24-Skybox-12h.jpg)
 
 12h Skybox Illumination
 
-![16h Skybox Illumination](./images/Skybox_16h.png)
+![16h Skybox Illumination](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/25-Skybox-16h.jpg)
 
 16h Skybox Illumination
 
-![20h Skbox Illumination](./images/Skybox_20h.png)
+![20h Skybox Illumination](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/26-Skybox-20h.jpg)
 
-20h Skbox Illumination
+20h Skybox Illumination
 
+</aside>
 
+</aside>
 
+<aside>
+🪄 **Exporter**
 
-📊 **Statistics**
+<aside>
+🔗 **CLI**
 
-In the next part we have one of the main features of the exporter, it shows info about the current scene like the number of triangles, objects, entities, materials, etc.
+![Decentraland CLI UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/27-CLI-Info.jpg)
 
-To update this info we need to Refresh the scene by clicking the button or selecting a time interval to auto refresh the scene. Refreshing the scene for the first time will create a GameObject called .dclManager that will be ignored during the Export, It contains info and the scene metadata to be exported.
+Decentraland CLI UI
 
-![Decentraland Statistics UI](./images/DclExporterToolkit_Stats.png)
+In this section we can Initialice a new Dcl project, Update the Decentraland CLI in our computer or Update the SDK in the selected project.
 
-Decentraland Statistics UI
+</aside>
 
-In the bottom of this part we can select the type of gltf export that we want in our project:
-
-![glTF export type](./images/DclExporterToolkit_gltf.png)
-
-glTF export type
-
-In this part we can also set the bounding boxes from every mesh with a dcl object and debug bounding box active.
-
-![DclExporterToolkit_Bounds.png](./images/DclExporterToolkit_Bounds.png)
-
-
-
-
-📄 **Scene Metadata**
-
-![Decentraland Metadata UI](./images/DclExporterToolkit_Metadata.png)
-
-Decentraland Metadata UI
-
-Here you can set up all the Dcl metadata needed including spawnpoints, info, description, permissions and more.
-
-The little button at the top open a new window where you can configure the parcels for your Dcl Scene.
-
-In this window you can:
-
-- Create regular parcels with a fixed size.
-- Create a custom parcel drawing in a grid starting from the base parcel al the bottom left corner.
-- Edit the parcel list manually.
-    
-    This parcel creation form must keep the next structure:
-    
-    “[X],[Y]
-    
-    [X],[Y]
-    
-    [X],[Y]”
-    
-    Being the first parcel the base that will be in the bottom left corner of the scene.
-    
-- Get the Dcl parcels from the marketplace, using the link or just the token id of a decentraland estate.
-
-![DclExporterToolkit_Parcels.png](./images/DclExporterToolkit_Parcels.png)
-
-
-
-
+<aside>
 📝 **Export Options**
 
-![Export options UI](./images/DclExporterToolkit_Export.png)
+In this section of the exporter window, we will find the main feature of the ToolKit, which is the Export option. This option translates our Unity scene into code written in the index.ts file, which is the script used to build Dcl scenes. Every time we export, the index.ts file is deleted and rewritten, so keep this in mind if you are manually editing parts of the index.ts.
 
-Export options UI
+There is secondary export options, which execute “partial” exports depending on the current needs of your scene, we will see use cases later on.
 
-In the last section of the exporter window we will see this buttons to do a full export or do little exports part by part.
-This can avoid time while exporting big scenes if we only did a few changes that affect a part of the decentraland project like changing metadata info.
+![Export UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/28-Export-Options.jpg)
 
+Export UI
 
+Before you export you can also select the type of GLB you want to export.
+
+![GLB export type](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/29-GLB-Options.jpg)
+
+GLB export type
+
+</aside>
+
+<aside>
+📁 **Decentraland Project**
+
+![Decentraland Project folder UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/30-Project-Manager.jpg)
+
+Decentraland Project folder UI
+
+In this section, we can manage the Dcl project folder. We can **open** the **root folder**, open specific scripts like **scene.json** with the metadata, **index.ts** where the main code is exported, or the **package.json** script.
+
+We can also run a Dcl scene locally to test our exports by executing a cmd command from Unity.
+
+</aside>
+
+</aside>
 
 ---
 
@@ -295,55 +354,110 @@ This can avoid time while exporting big scenes if we only did a few changes that
 
 ### Dcl Primitives
 
-
+<aside>
 🧊 **Box**, **Plane**, **Sphere** and **Cylinder**
 
-You can spawn primitive objects that won’t be exported as glTF meshes but as Decentraland primitives. You can spawn this objects by right click in the Hyerarchy or directly accessing the GameObject tab in the Unity toolbar.
+You can spawn primitive objects that won’t be exported as GLTF meshes but as Decentraland primitives. You can spawn this objects by right click in the Hyerarchy or directly accessing the GameObject tab in the Unity toolbar.
 
-![Dcl primitive menu](./images/Prims_0.png)
+![Dcl Primitives menu](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/31-DCL-Objects.jpg)
 
-Dcl primitive menu
+Dcl Primitives menu
 
-
+</aside>
 
 ### Dcl Areas
 
-
+<aside>
 ↔️ **Trigger Area** and **Modifier Areas**
 
 You can create custom Areas that will create Triggers or Modifier Areas in Decentraland, You can use this areas as inputs for Animation, Teleports, etc.
 
-Spawn this areas just like the primitives before, in the GameObjec t Unity menu.
+Spawn this areas just like the primitives before, in the GameObject Unity menu.
 
-![Dcl Area menu](./images/Areas_0.png)
+![Dcl Area menu](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/32-DCL-Area.jpg)
 
 Dcl Area menu
 
+This is how the default Trigger Area looks like:
+
+![Default Trigger Area](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/33-Trigger-Area.jpg)
+
+Default Trigger Area
+
 - **Trigger**: Trigger areas have 2 configurable lists of events for enter and exit events
 
-![Trigger area component UI](./images/Areas_1.png)
+![Trigger area component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Areas_1.png)
 
 Trigger area component UI
 
 - **Modifier**: This areas are specific from Decentraland and let you control the player camera and hide avatars or passports from players inside the area.
 
-![Modifier area component UI](./images/Areas_2.png)
+![Modifier area component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Areas_2.png)
 
 Modifier area component UI
 
+</aside>
 
+## 🎨 Materials
+
+You can create custom materials for your objects. To make a new material go to *Assets → Create → Material*.
+
+![Create a Material](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/34-Create-Material.jpg)
+
+Create a Material
+
+<aside>
+🪄 **Material properties**
+
+There are multiple properties we can customize for the material, the basic ones are:
+
+- **Base Map:** changes the color of the object
+- **Metallic Map:** this will change how “metallic” your object looks, by increasing or decreasing the amount of influence the skybox has over the tint of the object’s reflections.
+- **Smoothness:** amount of reflectiveness the object has. More smoothness, more reflectiveness.
+- **Normal Map:** controls how the object’s surface reacts to lighting.
+- **Emission:** adds a “glowing” effect to the object
+
+Here’s some examples of different materials with different properties:
+
+*Example 1: 0.5 Metallic / 0.5 Smoothness*
+
+![Material example 1](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/35-Red-Cube.jpg)
+
+Material example 1
+
+*Example 2: 1 Metallic / 1 Smoothness*
+
+![Material example 2](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/36-Blue-Cube.jpg)
+
+Material example 2
+
+*Example 3: 0 Metallic / 0 Smoothness*
+
+![Material example 3](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/37-Green-Cube.jpg)
+
+Material example 3
+
+*Example 4: 0.5 Metallic / 0.5 Smoothness / Yellow Emissive*
+
+![Material example 4](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/38-Yellow-Cube.jpg)
+
+Material example 4
+
+*You can use a custom texture image for each of the properties when working with non-primitive assets.* Later w*e will see a practical example of this in a video tutorial.*
+
+</aside>
 
 ## ⚙ Components
 
 You can find all the aviable components when clicking ***Add Component*** in any gameObject and search for the submenu ***Dcl Exporter ToolKit.***
 
-![Dcl Exporter ToolKit components Sub-Menu](./images/Comps_Add.png)
+![Dcl Exporter ToolKit components Sub-Menu](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_Add.png)
 
 Dcl Exporter ToolKit components Sub-Menu
 
 ### DclObject
 
-
+<aside>
 ⚙ **DclObject.cs**
 
 This component is the base of the exporter, clasify every entity in diferent types like Dcl Primitives, GLTF, Text Shapes, NFTs and more.
@@ -351,7 +465,7 @@ This different DclObjects will have a different behaviour when exporting the sol
 
 The component is needed if you want that gameObject to appear in the game.ts script.
 
-![DclObject component UI](./images/Comps_dclObject.png)
+![DclObject component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_dclObject.png)
 
 DclObject component UI
 
@@ -360,16 +474,16 @@ DclObject can modify collisions from here for Dcl primitives and will show the g
 The checkbox Debug Bounds will draw the bounding box of a mesh when selected or activated in the statistics section.
 By clicking in ignore object, This DclObject won’t be exported and this object will be ignored during the export.
 
-
+</aside>
 
 ### **Animator Dcl**
 
-
+<aside>
 ⚙ **AnimatorDcl.cs**
 
 The AnimatorDcl is an alternative to the Unity Animator with the clips that will be exported into a Decentraland Animator.
 
-![Custom animator component UI](./images/Comps_Anim.png)
+![Custom animator component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_Anim.png)
 
 Custom animator component UI
 
@@ -377,107 +491,107 @@ The default Animation will be the animation playing if we set the Start Playing 
 
 Each clip have a few parameters to control if the clip should loop and the animation speed.
 
-
+</aside>
 
 ### Audio Source Dcl
 
-
+<aside>
 🎶 **AudioSourceDcl.cs**
 
-With this component you willl create a Decentraland AudioSource on this entity, You can set a default clip with params anda list of clips to activate through input events or however you want.
+With this component you willl create a Decentraland AudioSource on this entity, You can set a default clip with params and a list of clips to activate through input events or however you want.
 
-![Audio source component UI](./images/Comps_Audio.png)
+![Audio source component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_Audio.png)
 
 Audio source component UI
 
-
+</aside>
 
 ### Streaming
 
-
+<aside>
 📽️ **Stream Video**
 
-This component give you the ability to export a streaming video screen, should be atached to a primitive plane as screen but you can use other Decentraland primitives.
+This component gives you the ability to export a streaming video screen, should be attached to a primitive plane as screen but you can use other Decentraland primitives.
 
-Set the vide URL that can also be a relative path to a video in the decentraland project folder and this video will be playing in the screen.
+Set the video URL that can also be a relative path to a video in the decentraland project folder and this video will be playing in the screen.
 
-![Stream video component UI](./images/Comps_StreamV.png)
+![Stream video component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_StreamV.png)
 
 Stream video component UI
 
+</aside>
 
-
-
+<aside>
 🖼️ **Stream Image**
 
-This is similar to the previous component but getting an image from the URL instead of a video.
+This is similar to the Stream Video component but getting an image from the URL instead of a video.
 
-![Stream image component UI](./images/Comps_StreamI.png)
+![Stream image component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_StreamI.png)
 
 Stream image component UI
 
-
+</aside>
 
 ### GLTF
 
-
+<aside>
 🎓 **Force GLTF** - **Force_GLTF.cs**
 
-This component will ignore the dcl object type and will force to export the object as gltf.
+This component will ignore the dcl object type and will force to export the object as GLTF.
 
 Can be used for example to combine multiple meshes in a single one with an empty parent and this component.
 
+</aside>
 
-
-
+<aside>
 🎓 **Break Child** - **Break_Child.cs**
 
-This component will export the object as a single gltf, its used for child objects that you want to export as individuals.
+This component will export the object as a single GLTF. It's used for child objects that you want to export as individuals.
 
+</aside>
 
-
-
+<aside>
 🎓 **GLB Placeholder** - **glbPlaceholder.cs**
 
-With this component you can set a path and the exporter will create a gltf shape with the model in the selected path.
+With this component, you can set a path and the exporter will create a GLTF shape with the model in the selected path. It works very similarly to the Stream Image/Video components. Keep in mind, your GLTF shape will inherit the placeholder’s transformations.
 
+</aside>
 
-
-
+<aside>
 🎓 **Late Loader** - **lateLoadMesh_script.cs**
 
 This will force the mesh to be written in the last part of the index.ts
 
+</aside>
 
-
-
+<aside>
 🎓 **Prefab Overwritter** - **ovewriteMesh_script.cs**
 
-Prefabs are exported as a single mesh to instanciate over the scene multiple times, if you want any specific prefab to export as a normal gltf you can add this component.
+Prefabs are exported as a single mesh to instanciate over the scene multiple times, if you want any specific prefab to export as a normal GLTF you can add this component.
 
-
+</aside>
 
 ### Billboard
 
-
+<aside>
 🪟 **BillboardDcl.cs**
 
 Adding this component to any gameObject will make it face the player camera in Dcl, you have options to fix the rotation around an axis to do different types of billboards.
 
-![Billboard component UI](./images/Comps_Billboard.png)
+![Billboard component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_Billboard.png)
 
 Billboard component UI
 
-
+</aside>
 
 ### InputEventDcl
 
-
+<aside>
 🖱️ **InputEventDcl.cs**
 
 With this component you will be able to create pointer input events to play animations, teleports, open links, etc.
 
-![Input event component UI](./images/Comps_InputEvent.png)
+![Input event component UI](Exporter%20Documentation%2007a7c97006864c0e811087de3ba93123/Comps_InputEvent.png)
 
 Input event component UI
 
@@ -485,21 +599,6 @@ You can create a list of events that will be executed in an event when pressing 
 
 You can switch between pointer down and pointer up, set the hover text and the distance to interact. and Select the input button in a list with multiple options.
 
-
-
----
-
-## Example Title
-
-### Example Subtitle
-
-
-🎓 Name
-
-Script Name: **name.cs**
-
-Description here.
-
-
+</aside>
 
 ---

@@ -1,31 +1,30 @@
-
-**Premise**
-
-
-🎓 This guide will take you through the **Decentraland Exporter Toolkit**, in order to learn how each part of the toolkit works and have a clear vision about what can we do from the Unity editor.
+# Unity Exporter Toolkit for Decentraland SDK7
 
 
-
-**The mission**
-
-
-🎓 Create an user guide to **explain** the usage of the **Decentraland Exporter Toolkit** for every new user that wants to create scenes in Dcl from Unity.
+## Premise
 
 
+This guide will take you through the **Decentraland Exporter Toolkit**, in order to learn how each part of the toolkit works and have a clear vision about what can we do from the Unity editor.
+This project and tool have been developed by Polygonal Mind with the support of the Decentraland DAO.
 
 
-⚙️ **Resources**
+## The mission
+
+
+Create an user guide to **explain** the usage of the **Decentraland Exporter Toolkit** for every new user that wants to create scenes in Dcl from Unity.
+
+
+
+
+### Resources
 
 - Unity 2022.3.12f1 - [https://unity3d.com/es/get-unity/download/archive](https://unity.com/releases/editor/archive)
 - Unity Hub [https://unity.com/download](https://unity.com/download)
+- Unity Exporter Toolkit for Decentraland SDK7 [https://github.com/PolygonalMind/dcl-dev-exportersdk7-release](https://github.com/PolygonalMind/dcl-dev-exportersdk7-release)
 
 
+# Decentraland Exporter Toolkit
 
-📋 Decentraland Exporter Toolkit
-
-
-
----
 
 ## 🏗️ Getting Started
 

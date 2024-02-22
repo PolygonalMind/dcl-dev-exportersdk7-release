@@ -1,12 +1,3 @@
-# Exporter Documentation
-
-Status: ✔Completed
-Team: Artworks
-Milestone: Core Items
-Assign: Hugo Serichol
-Last Edited: Hugo Serichol
-Completed Date: January 30, 2024
-Created time: January 8, 2024 8:29 AM
 
 **Premise**
 

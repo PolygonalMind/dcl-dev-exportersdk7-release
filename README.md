@@ -26,9 +26,9 @@ We have created a set of tutorials to ease your way into creating content for De
 
 [![Chapter 4](https://img.youtube.com/vi/Mk87HXunVwg/0.jpg)](https://www.youtube.com/watch?v=Mk87HXunVwg)
 
-**Chapter 5: _Coming Soon!_**
+**Chapter 5: Creating a scene from scratch**
 
-
+[![Chapter 5](https://img.youtube.com/vi/lfAGZgVe7ZM/0.jpg)](https://www.youtube.com/watch?v=lfAGZgVe7ZM)
 
 _by Polygonal Mind_
 
